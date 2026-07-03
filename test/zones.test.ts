@@ -101,46 +101,50 @@ describe('demand model', () => {
 });
 
 describe('zone growth', () => {
-  function buildPoweredResZone(): number {
-    applyTool(city, 'coal', 10, 10);
-    applyToolLine(city, 'wire', 13, 10, 18, 10);
-    applyTool(city, 'res', 20, 10);
-    return idx(19, 9);
+  // Powered R + I pair with a road between them, so both have power AND a
+  // transport counterpart (growth past stage 1 requires access).
+  function buildPoweredPair(): { r: number; i: number } {
+    applyTool(city, 'coal', 10, 10); // (9,9)-(12,12)
+    applyToolLine(city, 'wire', 13, 10, 30, 10); // wire row east
+    applyTool(city, 'res', 20, 8); // (19,7)-(21,9), south edge touches wire
+    applyTool(city, 'ind', 26, 8); // (25,7)-(27,9)
+    applyToolLine(city, 'road', 18, 6, 29, 6); // road along the north edge
+    return { r: idx(19, 7), i: idx(25, 7) };
   }
 
-  it('a powered zone under demand grows through stages', () => {
-    const anchorIdx = buildPoweredResZone();
-    for (let i = 0; i < 2000 && city.stage[anchorIdx] < MAX_STAGE; i++) tick(city);
-    expect(city.stage[anchorIdx]).toBe(MAX_STAGE);
+  it('a powered, connected zone under demand grows through stages', () => {
+    const { r } = buildPoweredPair();
+    for (let i = 0; i < 3000 && city.stage[r] < MAX_STAGE; i++) tick(city);
+    expect(city.stage[r]).toBe(MAX_STAGE);
     expect(city.census.resPop).toBeGreaterThan(0);
   });
 
   it('an unpowered zone never grows', () => {
     applyTool(city, 'res', 40, 40);
     const anchorIdx = idx(39, 39);
-    for (let i = 0; i < 1000; i++) tick(city);
+    for (let i = 0; i < 500; i++) tick(city);
     expect(city.stage[anchorIdx]).toBe(0);
   });
 
   it('losing power decays a grown zone', () => {
-    const anchorIdx = buildPoweredResZone();
-    for (let i = 0; i < 2000 && city.stage[anchorIdx] < MAX_STAGE; i++) tick(city);
-    expect(city.stage[anchorIdx]).toBe(MAX_STAGE);
+    const { r } = buildPoweredPair();
+    for (let i = 0; i < 3000 && city.stage[r] < MAX_STAGE; i++) tick(city);
+    expect(city.stage[r]).toBe(MAX_STAGE);
     // Rip out the plant.
     applyTool(city, 'bulldozer', 10, 10);
-    for (let i = 0; i < 3000 && city.stage[anchorIdx] > 0; i++) tick(city);
-    expect(city.stage[anchorIdx]).toBe(0);
+    for (let i = 0; i < 4000 && city.stage[r] > 0; i++) tick(city);
+    expect(city.stage[r]).toBe(0);
   });
 
   it('is deterministic: same seed, same actions, same city', () => {
     const run = () => {
       const c = flatCity();
       applyTool(c, 'coal', 10, 10);
-      applyToolLine(c, 'wire', 13, 10, 18, 10);
-      applyTool(c, 'res', 20, 10);
-      applyTool(c, 'com', 20, 14);
-      applyToolLine(c, 'wire', 19, 12, 19, 14);
-      for (let i = 0; i < 1500; i++) tick(c);
+      applyToolLine(c, 'wire', 13, 10, 30, 10);
+      applyTool(c, 'res', 20, 8);
+      applyTool(c, 'ind', 26, 8);
+      applyToolLine(c, 'road', 18, 6, 29, 6);
+      for (let i = 0; i < 1000; i++) tick(c);
       return c;
     };
     const a = run();
@@ -149,6 +153,7 @@ describe('zone growth', () => {
     expect(a.stage).toEqual(b.stage);
     expect(a.funds).toBe(b.funds);
     expect(a.demand).toEqual(b.demand);
+    expect(a.trafficDensity).toEqual(b.trafficDensity);
     expect(a.rng.state).toBe(b.rng.state);
   });
 });

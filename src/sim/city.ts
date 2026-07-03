@@ -40,6 +40,14 @@ export interface City {
   anchor: Int32Array;
   /** Zone growth stage, meaningful only at anchor cells. */
   stage: Uint8Array;
+  // Derived overlay maps, recomputed by the tick pipeline (0..255 each).
+  pollution: Uint8Array;
+  landValue: Uint8Array;
+  crime: Uint8Array;
+  trafficDensity: Uint8Array;
+  popDensity: Uint8Array;
+  policeCov: Uint8Array;
+  fireCov: Uint8Array;
   funds: number;
   /** Sim ticks since founding. TICKS_PER_MONTH ticks = 1 month. */
   cityTime: number;
@@ -60,6 +68,13 @@ export function createCity(seed: number, params: TerrainParams): City {
     flags: new Uint8Array(MAP_SIZE),
     anchor,
     stage: new Uint8Array(MAP_SIZE),
+    pollution: new Uint8Array(MAP_SIZE),
+    landValue: new Uint8Array(MAP_SIZE),
+    crime: new Uint8Array(MAP_SIZE),
+    trafficDensity: new Uint8Array(MAP_SIZE),
+    popDensity: new Uint8Array(MAP_SIZE),
+    policeCov: new Uint8Array(MAP_SIZE),
+    fireCov: new Uint8Array(MAP_SIZE),
     funds: START_FUNDS,
     cityTime: 0,
     seed,

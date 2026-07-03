@@ -24,25 +24,29 @@ npm run build      # typecheck + production build
 | Left drag (Pan mode), or middle/right drag | Pan the map |
 | Mouse wheel, `+` / `-` | Zoom (anchored at cursor) |
 | Arrow keys | Pan |
-| `B` / `R` / `W` | Bulldozer / Road / Power line |
+| `B` / `R` / `T` / `W` | Bulldozer / Road / Rail / Power line |
 | `Z` / `X` / `C` | Residential / Commercial / Industrial zone |
+| `O` / `F` | Police station / Fire station |
 | `P` / `N` | Coal plant / Nuclear plant |
+| `Q` | Query tool |
+| `M` | Cycle overlay maps |
 | `Esc` | Pan mode |
 | `Space` | Pause toggle |
 | `0` `1` `2` `3` | Paused / slow / normal / fast |
 
 ## Status
 
-Phase 2 of 7 (power + zones) — see `DESIGN.md` for the data model and tick
+Phase 3 of 7 (sim depth) — see `DESIGN.md` for the data model and tick
 pipeline, and `ART_DIRECTION.md` for the visual rules. Working now: seeded
-deterministic terrain (5 curated starter maps + random), bulldozer, roads and
-bridges, power lines with road crossings and underwater cables, R/C/I zones
-(§100) that grow through five density stages, coal (§3000) and nuclear (§5000)
-plants, power grid flood-fill with blinking unpowered bolts, an RCI demand
-model driving an always-visible indicator, drag placement with live cost
-readout, camera pan/zoom, four sim speeds, and a 58-test Vitest suite over the
-sim core.
+deterministic terrain (5 curated maps + random), roads/bridges, rail with
+level crossings and water trestles, power lines with crossings and underwater
+cables, R/C/I zones growing through five density stages gated on power *and*
+road/rail access to counterpart zones, coal/nuclear plants, police and fire
+stations, trip-based traffic that pollutes roads and fades over time,
+pollution/land value/crime/population/coverage maps with the original's
+diffusion feel, 9 overlay map views, a query tool, the RCI demand indicator,
+drag placement with live cost readout, and a 76-test Vitest suite.
 
-Coming next per the delivery plan: traffic/pollution/crime/land value +
-overlay maps + query tool, budget cycle + evaluation, disasters, scenarios +
-ordinances, and the final polish pass (audio, minimap, save/load).
+Coming next per the delivery plan: budget cycle + funding sliders +
+evaluation window, disasters, scenarios + ordinances, and the final polish
+pass (audio, minimap, save/load, traffic animation).

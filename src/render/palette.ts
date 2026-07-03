@@ -20,6 +20,11 @@ export const PAL = {
   // Concrete pad under developed buildings.
   pad: '#9aa0a8',
   padShade: '#8a909a',
+  // Steel rails and emergency red (fire stations now, disasters later).
+  steel: '#7b8087',
+  steelHi: '#9298a1',
+  alertRed: '#c0483e',
+  alertRedHi: '#d4675d',
   // Zone identity colors (R = green, C = blue, I = ochre) + light tones.
   rZone: '#3f8f4f',
   rZoneHi: '#54a862',

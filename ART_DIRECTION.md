@@ -54,6 +54,10 @@ A single fixed palette; new art picks from it, never invents colors ad hoc.
 | `uiAccent` | `#e3b93d` | funds, active tool, warnings |
 | `pad` | `#9aa0a8` | concrete pad under developed buildings |
 | `padShade` | `#8a909a` | pad south/east edge |
+| `steel` | `#7b8087` | rail trestle decks |
+| `steelHi` | `#9298a1` | rails |
+| `alertRed` | `#c0483e` | fire station identity, disaster effects |
+| `alertRedHi` | `#d4675d` | fire-red NW-light tone |
 | `rZone` | `#3f8f4f` | residential identity color |
 | `rZoneHi` | `#54a862` | residential NW-light tone |
 | `cZone` | `#3f6fb5` | commercial identity color |
@@ -104,5 +108,18 @@ Font: system UI stack; tabular numerals for funds and date.
 - **Unpowered bolt** — `wireYellow` lightning glyph on the zone's center tile,
   blinking at the 500 ms global cadence.
 
-Later phases extend this file with police/fire/stadium/seaport/airport sprites,
-disaster effects, and traffic animation specs before any of that art is drawn.
+## Per-tile specs (phase 3)
+
+- **Rail** — dirt base; two 2 px `steelHi` rails with 2 px `asphalt` ties every
+  6 px, connection-aware like roads. Over water: a 12 px `steel` trestle deck
+  under the track. Level crossings layer the track strokes over the road plate.
+- **Police / fire station** — pad base + one NW-lit hall (police = `cZone` blues,
+  fire = `alertRed` pair) with `laneline` windows and a `uiText` letter glyph
+  (P / F).
+- **Overlay maps** — 1 px per tile, nearest-scaled: scalar maps use a
+  green→yellow→red heat ramp that stays transparent at negligible values; the
+  power view shows powered conductors green / unpowered red; transport shows
+  roads white, rails steel-blue.
+
+Later phases extend this file with stadium/seaport/airport sprites, disaster
+effects, and traffic animation specs before any of that art is drawn.

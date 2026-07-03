@@ -215,6 +215,39 @@ button.active {
   opacity: 1;
 }
 
+.query-popup {
+  position: fixed;
+  width: 190px;
+  background: var(--ui-panel);
+  border-bottom: 2px solid var(--ui-accent);
+  padding: 8px 10px;
+  z-index: 30;
+  pointer-events: none;
+  font-size: 12px;
+  /* Fully-opaque fixed elements over the WebGL canvas leave white raster
+     damage in software-rendered Chromium; imperceptible transparency
+     sidesteps the bug. */
+  opacity: 0.98;
+}
+
+.query-title {
+  font-weight: 700;
+  color: var(--ui-accent);
+  margin-bottom: 6px;
+}
+
+.query-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.query-row span:first-child {
+  opacity: 0.75;
+}
+
 .drag-cost {
   position: fixed;
   background: var(--ui-panel);
@@ -224,6 +257,7 @@ button.active {
   padding: 2px 6px;
   pointer-events: none;
   z-index: 20;
+  opacity: 0.98; /* see .query-popup */
   /* offset from #game origin */
   margin-left: var(--toolbar-w);
   margin-top: var(--topbar-h);

@@ -1,7 +1,8 @@
 import { Container, Sprite, type Texture } from 'pixi.js';
 import type { City } from '../sim/city';
 import { Flag, isZone, MAP_H, MAP_SIZE, MAP_W, Tile } from '../sim/constants';
-import { isRoadLike, isWireLike } from '../sim/tools';
+import { isRailLike, isRoadLike, isWireLike } from '../sim/tools';
+import { OverlayView, type OverlayId } from './overlay';
 import { TILE_PX, type Tileset } from './tileset';
 
 const WATER_FRAME_MS = 500;
@@ -18,6 +19,7 @@ const WATER_FRAME_MS = 500;
  */
 export class MapRenderer {
   readonly container = new Container();
+  readonly overlayView = new OverlayView();
   private groundLayer = new Container();
   private buildingLayer = new Container();
   private overlayLayer = new Container();
@@ -38,7 +40,13 @@ export class MapRenderer {
 
   constructor(city: City, private tileset: Tileset) {
     this.city = city;
-    this.container.addChild(this.groundLayer, this.buildingLayer, this.overlayLayer, this.boltLayer);
+    this.container.addChild(
+      this.groundLayer,
+      this.buildingLayer,
+      this.overlayLayer,
+      this.boltLayer,
+      this.overlayView.sprite,
+    );
     for (let y = 0; y < MAP_H; y++) {
       for (let x = 0; x < MAP_W; x++) {
         const s = new Sprite(this.tileset.dirt[0]);
@@ -55,6 +63,15 @@ export class MapRenderer {
   setCity(city: City): void {
     this.city = city;
     this.forceFullRefresh();
+  }
+
+  setOverlay(id: OverlayId): void {
+    this.overlayView.set(id);
+  }
+
+  /** Call once per frame after update(). */
+  updateOverlay(nowMs: number): void {
+    this.overlayView.update(this.city, nowMs);
   }
 
   private forceFullRefresh(): void {
@@ -131,10 +148,16 @@ export class MapRenderer {
     }
   }
 
+  // Crossings render as the road plate plus the other network's strokes on
+  // a transparency layer.
   private syncOverlay(i: number, x: number, y: number): void {
     const existing = this.overlays.get(i);
-    if (this.city.tiles[i] === Tile.RoadWire) {
-      const tex = this.tileset.wireOverlay[this.wireMask(x, y)];
+    const t = this.city.tiles[i];
+    let tex: Texture | null = null;
+    if (t === Tile.RoadWire) tex = this.tileset.wireOverlay[this.wireMask(x, y)];
+    else if (t === Tile.RoadRail) tex = this.tileset.railOverlay[this.mask(x, y, isRailLike)];
+
+    if (tex) {
       if (existing) {
         existing.texture = tex;
       } else {
@@ -180,8 +203,12 @@ export class MapRenderer {
         return ts.zoneI[stage];
       case Tile.Coal:
         return ts.coal;
-      default:
+      case Tile.Nuclear:
         return ts.nuclear;
+      case Tile.Police:
+        return ts.police;
+      default:
+        return ts.fireStation;
     }
   }
 
@@ -220,12 +247,19 @@ export class MapRenderer {
         return ts.rubble[variant % ts.rubble.length];
       case Tile.Road:
       case Tile.RoadWire:
+      case Tile.RoadRail:
         return ts.road[this.mask(x, y, isRoadLike)];
       case Tile.Wire:
         return ts.wire[this.wireMask(x, y)];
       case Tile.WireWater: {
         const m = this.wireMask(x, y);
         return m & (2 | 8) ? ts.wireWaterH : ts.wireWaterV;
+      }
+      case Tile.Rail:
+        return ts.rail[this.mask(x, y, isRailLike)];
+      case Tile.RailWater: {
+        const m = this.mask(x, y, isRailLike);
+        return m & (2 | 8) ? ts.railWaterH : ts.railWaterV;
       }
       case Tile.Bridge: {
         const mask = this.mask(x, y, isRoadLike);

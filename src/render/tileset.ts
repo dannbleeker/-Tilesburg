@@ -22,6 +22,12 @@ export interface Tileset {
   wireOverlay: Texture[];
   wireWaterH: Texture;
   wireWaterV: Texture;
+  /** Rail on land, by connection mask. */
+  rail: Texture[];
+  /** Just the track on transparency, drawn over level crossings. */
+  railOverlay: Texture[];
+  railWaterH: Texture;
+  railWaterV: Texture;
   /** Concrete pad drawn under building footprints. */
   pad: Texture;
   /** Zone art by growth stage 0..MAX_STAGE, 3x3 tiles. */
@@ -30,6 +36,8 @@ export interface Tileset {
   zoneI: Texture[];
   coal: Texture;
   nuclear: Texture;
+  police: Texture;
+  fireStation: Texture;
   /** Blinking unpowered indicator. */
   bolt: Texture;
 }
@@ -193,6 +201,56 @@ function drawWireWater(ctx: Ctx, horizontal: boolean): void {
   }
 }
 
+// --- Rail ----------------------------------------------------------------
+
+/**
+ * Track strokes only (transparent background): two steel rails along each
+ * connected direction with ties every 6px.
+ */
+function drawRailStrokes(ctx: Ctx, mask: number): void {
+  const vertical = mask === 0 || (mask & (N | S)) !== 0;
+  const horizontal = (mask & (E | W)) !== 0;
+  const drawRun = (horiz: boolean, from: number, to: number) => {
+    ctx.fillStyle = PAL.asphalt; // ties
+    for (let p = from + 1; p < to; p += 6) {
+      if (horiz) ctx.fillRect(p, 8, 2, 8);
+      else ctx.fillRect(8, p, 8, 2);
+    }
+    ctx.fillStyle = PAL.steelHi; // rails
+    if (horiz) {
+      ctx.fillRect(from, 9, to - from, 2);
+      ctx.fillRect(from, 13, to - from, 2);
+    } else {
+      ctx.fillRect(9, from, 2, to - from);
+      ctx.fillRect(13, from, 2, to - from);
+    }
+  };
+  if (vertical) {
+    const from = mask & N || mask === 0 ? 0 : 9;
+    const to = mask & S || mask === 0 ? TILE_PX : 15;
+    drawRun(false, from, to);
+  }
+  if (horizontal) {
+    const from = mask & W ? 0 : 9;
+    const to = mask & E ? TILE_PX : 15;
+    drawRun(true, from, to);
+  }
+}
+
+function drawRail(ctx: Ctx, mask: number): void {
+  drawDirtBase(ctx, 0);
+  drawRailStrokes(ctx, mask);
+}
+
+function drawRailWater(ctx: Ctx, horizontal: boolean): void {
+  drawWater(ctx, 0);
+  // Trestle deck under the track.
+  ctx.fillStyle = PAL.steel;
+  if (horizontal) ctx.fillRect(0, 6, TILE_PX, 12);
+  else ctx.fillRect(6, 0, 12, TILE_PX);
+  drawRailStrokes(ctx, horizontal ? E | W : N | S);
+}
+
 // --- Buildings -----------------------------------------------------------
 
 function makeBig(sizeTiles: number, draw: (ctx: Ctx) => void): Texture {
@@ -348,6 +406,19 @@ function drawNuclear(ctx: Ctx): void {
   }
 }
 
+/** Civic station: pad + one identity-colored hall with a big letter glyph. */
+function drawStation(ctx: Ctx, base: string, hi: string, glyph: string): void {
+  const px = 3 * TILE_PX;
+  drawPadBase(ctx, px);
+  drawBlock(ctx, 8, 8, px - 16, px - 16, base, hi);
+  drawWindows(ctx, 8, 8, px - 16, px - 16);
+  ctx.fillStyle = PAL.uiText;
+  ctx.font = 'bold 24px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(glyph, px / 2, px / 2 + 1);
+}
+
 export function createTileset(): Tileset {
   return {
     dirt: [0, 1, 2, 3].map((v) => makeTile((c) => drawDirtBase(c, v))),
@@ -361,12 +432,18 @@ export function createTileset(): Tileset {
     wireOverlay: Array.from({ length: 16 }, (_, mask) => makeTile((c) => drawWireStrokes(c, mask))),
     wireWaterH: makeTile((c) => drawWireWater(c, true)),
     wireWaterV: makeTile((c) => drawWireWater(c, false)),
+    rail: Array.from({ length: 16 }, (_, mask) => makeTile((c) => drawRail(c, mask))),
+    railOverlay: Array.from({ length: 16 }, (_, mask) => makeTile((c) => drawRailStrokes(c, mask))),
+    railWaterH: makeTile((c) => drawRailWater(c, true)),
+    railWaterV: makeTile((c) => drawRailWater(c, false)),
     pad: makeTile((c) => drawPadBase(c, TILE_PX)),
     zoneR: zoneTextures({ base: PAL.rZone, hi: PAL.rZoneHi, glyph: 'R' }),
     zoneC: zoneTextures({ base: PAL.cZone, hi: PAL.cZoneHi, glyph: 'C' }),
     zoneI: zoneTextures({ base: PAL.iZone, hi: PAL.iZoneHi, glyph: 'I' }),
     coal: makeBig(4, drawCoal),
     nuclear: makeBig(4, drawNuclear),
+    police: makeBig(3, (c) => drawStation(c, PAL.cZone, PAL.cZoneHi, 'P')),
+    fireStation: makeBig(3, (c) => drawStation(c, PAL.alertRed, PAL.alertRedHi, 'F')),
     bolt: makeTile((c) => drawBoltShape(c, 0, 0, 1)),
   };
 }

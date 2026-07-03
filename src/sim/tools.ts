@@ -4,12 +4,16 @@ import { COST, FOOTPRINT, isBuilding, Tile, type BuildingType, type TileType } f
 export type ToolId =
   | 'bulldozer'
   | 'road'
+  | 'rail'
   | 'wire'
   | 'res'
   | 'com'
   | 'ind'
+  | 'police'
+  | 'fire'
   | 'coal'
-  | 'nuclear';
+  | 'nuclear'
+  | 'query';
 
 export interface ToolInfo {
   name: string;
@@ -23,18 +27,24 @@ export interface ToolInfo {
 export const TOOL_INFO: Record<ToolId, ToolInfo> = {
   bulldozer: { name: 'Bulldozer', cost: COST.bulldozer, hotkey: 'B', drag: true },
   road: { name: 'Road', cost: COST.road, hotkey: 'R', drag: true },
+  rail: { name: 'Rail', cost: COST.rail, hotkey: 'T', drag: true },
   wire: { name: 'Power line', cost: COST.wire, hotkey: 'W', drag: true },
   res: { name: 'Residential', cost: COST.zone, hotkey: 'Z', drag: false },
   com: { name: 'Commercial', cost: COST.zone, hotkey: 'X', drag: false },
   ind: { name: 'Industrial', cost: COST.zone, hotkey: 'C', drag: false },
+  police: { name: 'Police station', cost: COST.police, hotkey: 'O', drag: false },
+  fire: { name: 'Fire station', cost: COST.fire, hotkey: 'F', drag: false },
   coal: { name: 'Coal plant', cost: COST.coal, hotkey: 'P', drag: false },
   nuclear: { name: 'Nuclear plant', cost: COST.nuclear, hotkey: 'N', drag: false },
+  query: { name: 'Query', cost: 0, hotkey: 'Q', drag: false },
 };
 
 const BUILDING_TOOL: Partial<Record<ToolId, { type: BuildingType; cost: number }>> = {
   res: { type: Tile.ZoneR, cost: COST.zone },
   com: { type: Tile.ZoneC, cost: COST.zone },
   ind: { type: Tile.ZoneI, cost: COST.zone },
+  police: { type: Tile.Police, cost: COST.police },
+  fire: { type: Tile.FireStation, cost: COST.fire },
   coal: { type: Tile.Coal, cost: COST.coal },
   nuclear: { type: Tile.Nuclear, cost: COST.nuclear },
 };
@@ -60,8 +70,13 @@ export function applyTool(city: City, tool: ToolId, x: number, y: number): ToolR
       return bulldoze(city, x, y);
     case 'road':
       return placeRoad(city, x, y);
+    case 'rail':
+      return placeRail(city, x, y);
     case 'wire':
       return placeWire(city, x, y);
+    case 'query':
+      // Read-only; the UI answers queries via queryTile().
+      return { ok: true, cost: 0 };
     default: {
       const b = BUILDING_TOOL[tool];
       if (!b) return { ok: false, cost: 0, reason: 'Unknown tool' };
@@ -76,8 +91,9 @@ function bulldoze(city: City, x: number, y: number): ToolResult {
   if (t === Tile.Water) return { ok: false, cost: 0, reason: "Can't bulldoze water" };
   if (t === Tile.Dirt) return { ok: false, cost: 0, reason: 'Nothing to clear' };
   if (!spend(city, COST.bulldozer)) return NO_FUNDS;
-  // Clearing a bridge or underwater cable returns the tile to open water.
-  setTile(city, x, y, t === Tile.Bridge || t === Tile.WireWater ? Tile.Water : Tile.Dirt);
+  // Clearing anything built over water returns the tile to open water.
+  const overWater = t === Tile.Bridge || t === Tile.WireWater || t === Tile.RailWater;
+  setTile(city, x, y, overWater ? Tile.Water : Tile.Dirt);
   return { ok: true, cost: COST.bulldozer };
 }
 
@@ -114,6 +130,11 @@ function placeRoad(city: City, x: number, y: number): ToolResult {
       setTile(city, x, y, Tile.RoadWire);
       return { ok: true, cost: COST.road };
     }
+    case Tile.Rail: {
+      if (!spend(city, COST.road)) return NO_FUNDS;
+      setTile(city, x, y, Tile.RoadRail);
+      return { ok: true, cost: COST.road };
+    }
     case Tile.Water: {
       if (!spend(city, COST.bridge)) return NO_FUNDS;
       setTile(city, x, y, Tile.Bridge);
@@ -133,6 +154,42 @@ function placeRoad(city: City, x: number, y: number): ToolResult {
     }
     default:
       return { ok: false, cost: 0, reason: "Can't build a road there" };
+  }
+}
+
+function placeRail(city: City, x: number, y: number): ToolResult {
+  const t = getTile(city, x, y);
+  switch (t) {
+    case Tile.Rail:
+    case Tile.RailWater:
+    case Tile.RoadRail:
+      return { ok: true, cost: 0 };
+    case Tile.Road:
+    case Tile.RoadWire: {
+      // Level crossing. (Rail through a road/wire crossing drops the wire —
+      // three-way stacks are out of scope, as in the original.)
+      if (!spend(city, COST.rail)) return NO_FUNDS;
+      setTile(city, x, y, Tile.RoadRail);
+      return { ok: true, cost: COST.rail };
+    }
+    case Tile.Water: {
+      if (!spend(city, COST.railWater)) return NO_FUNDS;
+      setTile(city, x, y, Tile.RailWater);
+      return { ok: true, cost: COST.railWater };
+    }
+    case Tile.Tree: {
+      const cost = COST.rail + COST.bulldozer;
+      if (!spend(city, cost)) return NO_FUNDS;
+      setTile(city, x, y, Tile.Rail);
+      return { ok: true, cost };
+    }
+    case Tile.Dirt: {
+      if (!spend(city, COST.rail)) return NO_FUNDS;
+      setTile(city, x, y, Tile.Rail);
+      return { ok: true, cost: COST.rail };
+    }
+    default:
+      return { ok: false, cost: 0, reason: "Can't lay rail there" };
   }
 }
 
@@ -260,9 +317,13 @@ export function applyToolLine(
 
 /** Tile types a given tile reads as for connection-mask purposes. */
 export function isRoadLike(t: TileType | number): boolean {
-  return t === Tile.Road || t === Tile.Bridge || t === Tile.RoadWire;
+  return t === Tile.Road || t === Tile.Bridge || t === Tile.RoadWire || t === Tile.RoadRail;
 }
 
 export function isWireLike(t: TileType | number): boolean {
   return t === Tile.Wire || t === Tile.WireWater || t === Tile.RoadWire || isBuilding(t);
+}
+
+export function isRailLike(t: TileType | number): boolean {
+  return t === Tile.Rail || t === Tile.RailWater || t === Tile.RoadRail;
 }

@@ -151,13 +151,37 @@ Transport access joins the requirements in phase 3.
 labor pool, industry employs it. Tax, pollution, unemployment, and the stadium/
 seaport/airport cap-lifters plug in during later phases.
 
+## Traffic, overlays & derived maps (phase 3)
+
+**Trips**: every zone anchor periodically BFSes from its perimeter through the
+road/rail network (≤ 40 steps) for a counterpart zone type — R seeks C/I jobs, C and
+I seek R. Success sets the anchor's ACCESS flag (required to grow past stage 1) and
+deposits traffic along the route's *road* tiles; rail carries trips with no traffic
+and no pollution. Traffic decays multiplicatively between passes.
+
+**Derived maps** (all `Uint8Array`, 0..255, recomputed on a staggered monthly
+schedule ordered so downstream reads fresh upstream): population density (zone
+stages, smoothed), pollution (industry + coal + traffic, 2 blur passes), police/fire
+coverage (station seeds spread by 6 blur passes; funding scales reach in phase 4),
+land value (water/tree amenity + population-centroid centrality − pollution −
+crime), crime (population pressure − land value − police coverage, smoothed).
+
+**Overlay view**: a 1-px-per-tile canvas stretched over the map (nearest scaling)
+with a green→yellow→red heat ramp; power and transport get categorical modes. The
+query tool reads the same arrays.
+
+Rendering note: fully-opaque fixed DOM over the WebGL canvas triggers white raster
+damage in software-rendered Chromium; floating UI uses `opacity: 0.98` to sidestep
+it (see `style.css`).
+
 ## Phase status
 
-Phase 1 delivered: scaffold, RNG, city state, terrain + 5 curated maps, tick clock,
-tile renderer + camera, water animation, road art, bulldozer/road tools, chrome,
-tests. Phase 2 delivered: power grid + wire/crossing/underwater-cable tools, R/C/I
-zones with growth stages, coal + nuclear plants, RCI demand model + always-visible
-indicator, unpowered bolts, building rendering layers.
+Phase 1: scaffold, RNG, city state, terrain + 5 curated maps, tick clock, tile
+renderer + camera, bulldozer/road tools, chrome, tests. Phase 2: power grid +
+wire tools, R/C/I zones with growth stages, coal/nuclear plants, RCI demand model +
+indicator, unpowered bolts. Phase 3: rail + level crossings, police/fire stations,
+trip generation with access gating, traffic/pollution/land value/crime/coverage/
+population maps, 9 overlay views, query tool.
 
-Stubbed: traffic, pollution/land value/crime, overlays, query tool, budget,
-disasters, scenarios, ordinances, minimap, save/load, audio, plant capacity limits.
+Stubbed: budget/funding/evaluation, disasters, scenarios, ordinances, minimap,
+save/load, audio, plant capacity limits, traffic animation.

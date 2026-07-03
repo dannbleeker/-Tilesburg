@@ -11,6 +11,10 @@ export interface InputOptions {
   onDragCost: (cost: number | null, sx: number, sy: number) => void;
   /** Called when a tool application fails with a reason. */
   onToolError: (reason: string) => void;
+  /** Query-tool click on a tile (screen coords are page-relative). */
+  onQuery: (x: number, y: number, pageX: number, pageY: number) => void;
+  /** Any other interaction — dismisses a query popup. */
+  onDismiss: () => void;
 }
 
 /**
@@ -44,6 +48,12 @@ export function setupInput(opts: InputOptions): void {
     canvas.setPointerCapture(e.pointerId);
     lastPointer = { x: e.clientX, y: e.clientY };
     const tool = opts.getTool();
+    if (e.button === 0 && tool === 'query') {
+      const cell = cellAt(e);
+      opts.onQuery(cell.x, cell.y, e.clientX, e.clientY);
+      return;
+    }
+    opts.onDismiss();
     if (e.button === 0 && tool !== null) {
       // Building tools place once per click; drag tools paint along the path.
       toolDrag = TOOL_INFO[tool].drag;

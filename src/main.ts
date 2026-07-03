@@ -5,6 +5,7 @@ import { PAL } from './render/palette';
 import { MapRenderer } from './render/renderer';
 import { createTileset } from './render/tileset';
 import { createCity, type City } from './sim/city';
+import { queryTile } from './sim/query';
 import { randomTerrainParams, STARTER_MAPS } from './sim/terrain';
 import { primeDemand, tick } from './sim/tick';
 import { Rng } from './sim/rng';
@@ -20,6 +21,10 @@ async function boot(): Promise<void> {
     resizeTo: gameRoot,
     background: PAL.uiBg,
     antialias: false,
+    // WebGL over WebGPU: rock-solid for a 2D tile grid everywhere, and
+    // software-WebGPU environments show compositing artifacts under
+    // overlapping fixed DOM (observed in headless Chromium).
+    preference: 'webgl',
   });
   gameRoot.appendChild(app.canvas);
 
@@ -36,6 +41,7 @@ async function boot(): Promise<void> {
   app.renderer.on('resize', (w: number, h: number) => camera.setViewport(w, h));
 
   const ui = new UI(uiRoot, {
+    onOverlay: (id) => renderer.setOverlay(id),
     onNewMap: (starter) => {
       if (starter === 'random') {
         // Seed the new map from wall clock — the only non-sim randomness in
@@ -62,6 +68,11 @@ async function boot(): Promise<void> {
     getTool: () => ui.tool,
     onDragCost: (cost, sx, sy) => ui.showDragCost(cost, sx, sy),
     onToolError: (reason) => ui.setMessage(reason),
+    onQuery: (x, y, pageX, pageY) => {
+      const info = queryTile(city, x, y);
+      if (info) ui.showQuery(info, pageX, pageY);
+    },
+    onDismiss: () => ui.hideQuery(),
   });
 
   // Fixed-timestep sim, free-running render: the accumulator converts wall
@@ -76,7 +87,9 @@ async function boot(): Promise<void> {
       acc -= 1;
     }
     acc = Math.min(acc, 1);
-    renderer.update(performance.now());
+    const now = performance.now();
+    renderer.update(now);
+    renderer.updateOverlay(now);
     ui.update(city);
   });
 }

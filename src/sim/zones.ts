@@ -1,5 +1,5 @@
 import type { City } from './city';
-import { DEMAND_MAX, MAP_SIZE, MAX_STAGE, Tile } from './constants';
+import { DEMAND_MAX, Flag, MAP_SIZE, MAX_STAGE, Tile } from './constants';
 import { isPowered } from './power';
 
 // The zone scan is staggered like the original: each tick handles 1/SLICES
@@ -35,6 +35,15 @@ export function scanZones(city: City): void {
 
     if (!isPowered(city, i)) {
       if (stage[i] > 0 && rng.chance(0.03)) stage[i]--;
+      continue;
+    }
+
+    // Growing beyond the first stage needs a transport route to a
+    // counterpart zone (the ACCESS flag maintained by trip generation).
+    // A cut-off dense zone slowly empties back to stage 1.
+    const hasAccess = (city.flags[i] & Flag.Access) !== 0;
+    if (!hasAccess && stage[i] >= 1) {
+      if (stage[i] >= 2 && rng.chance(0.02)) stage[i]--;
       continue;
     }
 

@@ -17,13 +17,20 @@ export const Tile = {
   WireWater: 7,
   /** Road + power line crossing. Conducts and carries traffic. */
   RoadWire: 8,
+  Rail: 9,
+  /** Rail crossing open water. */
+  RailWater: 10,
+  /** Road + rail level crossing. */
+  RoadRail: 11,
   // Building types: every cell of a footprint carries the type; the anchor
   // (top-left) cell additionally owns the growth stage.
-  ZoneR: 9,
-  ZoneC: 10,
-  ZoneI: 11,
-  Coal: 12,
-  Nuclear: 13,
+  ZoneR: 12,
+  ZoneC: 13,
+  ZoneI: 14,
+  Coal: 15,
+  Nuclear: 16,
+  Police: 17,
+  FireStation: 18,
 } as const;
 export type TileType = (typeof Tile)[keyof typeof Tile];
 
@@ -32,10 +39,12 @@ export type BuildingType =
   | typeof Tile.ZoneC
   | typeof Tile.ZoneI
   | typeof Tile.Coal
-  | typeof Tile.Nuclear;
+  | typeof Tile.Nuclear
+  | typeof Tile.Police
+  | typeof Tile.FireStation;
 
 export function isBuilding(t: number): t is BuildingType {
-  return t >= Tile.ZoneR && t <= Tile.Nuclear;
+  return t >= Tile.ZoneR && t <= Tile.FireStation;
 }
 
 export function isZone(t: number): boolean {
@@ -47,6 +56,18 @@ export function isConductor(t: number): boolean {
   return t === Tile.Wire || t === Tile.WireWater || t === Tile.RoadWire || isBuilding(t);
 }
 
+/** Tiles trips can travel on. Traffic density only accumulates on roads. */
+export function isTransport(t: number): boolean {
+  return (
+    t === Tile.Road ||
+    t === Tile.Bridge ||
+    t === Tile.RoadWire ||
+    t === Tile.Rail ||
+    t === Tile.RailWater ||
+    t === Tile.RoadRail
+  );
+}
+
 /** Footprint edge length per building type. */
 export const FOOTPRINT: Record<BuildingType, number> = {
   [Tile.ZoneR]: 3,
@@ -54,6 +75,8 @@ export const FOOTPRINT: Record<BuildingType, number> = {
   [Tile.ZoneI]: 3,
   [Tile.Coal]: 4,
   [Tile.Nuclear]: 4,
+  [Tile.Police]: 3,
+  [Tile.FireStation]: 3,
 };
 
 /** Highest zone growth stage (0 = freshly zoned, empty). */
@@ -64,11 +87,11 @@ export const POP_PER_STAGE = 8;
 // RCI demand valves live in [-DEMAND_MAX, DEMAND_MAX].
 export const DEMAND_MAX = 1500;
 
-// City.flags bits. Reserved now so the save format doesn't churn later;
-// power bits light up in phase 2.
+// City.flags bits.
 export const Flag = {
   Powered: 1 << 0,
-  Conductor: 1 << 1,
+  /** Zone anchor found a transport route to a counterpart zone recently. */
+  Access: 1 << 1,
   Burnable: 1 << 2,
 } as const;
 
@@ -86,10 +109,17 @@ export const COST = {
   bridge: 50,
   wire: 5,
   wireWater: 25,
+  rail: 20,
+  railWater: 100,
   zone: 100,
+  police: 500,
+  fire: 500,
   coal: 3000,
   nuclear: 5000,
 } as const;
+
+/** Max trip length (in transport tiles) for a zone to find a counterpart. */
+export const MAX_TRIP_DIST = 40;
 
 // Sim ticks per second at each game speed.
 export const SPEEDS = {
