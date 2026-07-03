@@ -6,6 +6,7 @@ import { MapRenderer } from './render/renderer';
 import { createTileset } from './render/tileset';
 import { createCity, type City } from './sim/city';
 import { queryTile } from './sim/query';
+import { createScenarioCity, SCENARIOS } from './sim/scenarios';
 import { randomTerrainParams, STARTER_MAPS } from './sim/terrain';
 import { primeDemand, tick } from './sim/tick';
 import { Rng } from './sim/rng';
@@ -43,6 +44,15 @@ async function boot(): Promise<void> {
   const ui = new UI(uiRoot, {
     onOverlay: (id) => renderer.setOverlay(id),
     onNewMap: (starter) => {
+      if (typeof starter === 'object') {
+        const def = SCENARIOS.find((s) => s.id === starter.scenarioId);
+        if (!def) return;
+        city = createScenarioCity(def);
+        renderer.setCity(city);
+        camera.centerOnMap();
+        ui.showScenarioIntro(def);
+        return;
+      }
       if (starter === 'random') {
         // Seed the new map from wall clock — the only non-sim randomness in
         // the game. The seed is stored on the city, so the map itself stays

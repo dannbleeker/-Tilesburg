@@ -38,6 +38,9 @@ export interface Tileset {
   nuclear: Texture;
   police: Texture;
   fireStation: Texture;
+  stadium: Texture;
+  seaport: Texture;
+  airport: Texture;
   /** Blinking unpowered indicator. */
   bolt: Texture;
   /** Disaster tiles; fire animates on the global 500ms cadence. */
@@ -499,6 +502,59 @@ function drawMonster(ctx: Ctx): void {
   }
 }
 
+function drawStadium(ctx: Ctx): void {
+  const px = 4 * TILE_PX;
+  drawPadBase(ctx, px);
+  // Stands ring around a green field with a center line.
+  ctx.fillStyle = PAL.rubbleHi;
+  ctx.beginPath();
+  ctx.ellipse(px / 2, px / 2, 42, 34, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PAL.rubble;
+  ctx.beginPath();
+  ctx.ellipse(px / 2, px / 2, 34, 26, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PAL.rZone;
+  ctx.beginPath();
+  ctx.ellipse(px / 2, px / 2, 26, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PAL.laneline;
+  ctx.fillRect(px / 2 - 1, px / 2 - 18, 2, 36);
+}
+
+function drawSeaport(ctx: Ctx): void {
+  const px = 4 * TILE_PX;
+  drawPadBase(ctx, px);
+  // Water berth along the south, piers reaching into it.
+  ctx.fillStyle = PAL.water;
+  ctx.fillRect(0, px - 30, px, 30);
+  ctx.fillStyle = PAL.asphalt;
+  for (const x of [10, 40, 70]) ctx.fillRect(x, px - 34, 12, 30);
+  // Container stacks + a crane.
+  drawBlock(ctx, 8, 10, 28, 18, PAL.iZone, PAL.iZoneHi);
+  drawBlock(ctx, 44, 12, 24, 14, PAL.cZone, PAL.cZoneHi);
+  ctx.fillStyle = PAL.wireYellow;
+  ctx.fillRect(76, 8, 4, 40);
+  ctx.fillRect(64, 8, 28, 4);
+}
+
+function drawAirport(ctx: Ctx): void {
+  const px = 6 * TILE_PX;
+  drawPadBase(ctx, px);
+  // Main runway with centerline dashes, a taxiway, terminal + tower.
+  ctx.fillStyle = PAL.asphalt;
+  ctx.fillRect(8, 96, 128, 28);
+  ctx.fillStyle = PAL.laneline;
+  for (let x = 14; x < 130; x += 14) ctx.fillRect(x, 109, 8, 2);
+  ctx.fillStyle = PAL.asphalt;
+  ctx.fillRect(100, 24, 24, 80);
+  drawBlock(ctx, 12, 24, 64, 32, PAL.pad, PAL.uiText);
+  drawWindows(ctx, 12, 24, 64, 32);
+  drawBlock(ctx, 82, 12, 12, 24, PAL.cZone, PAL.cZoneHi);
+  ctx.fillStyle = PAL.wireYellow;
+  ctx.fillRect(84, 8, 8, 4);
+}
+
 /** Civic station: pad + one identity-colored hall with a big letter glyph. */
 function drawStation(ctx: Ctx, base: string, hi: string, glyph: string): void {
   const px = 3 * TILE_PX;
@@ -537,6 +593,9 @@ export function createTileset(): Tileset {
     nuclear: makeBig(4, drawNuclear),
     police: makeBig(3, (c) => drawStation(c, PAL.cZone, PAL.cZoneHi, 'P')),
     fireStation: makeBig(3, (c) => drawStation(c, PAL.alertRed, PAL.alertRedHi, 'F')),
+    stadium: makeBig(4, drawStadium),
+    seaport: makeBig(4, drawSeaport),
+    airport: makeBig(6, drawAirport),
     bolt: makeTile((c) => drawBoltShape(c, 0, 0, 1)),
     fire: [0, 1].map((f) => makeTile((c) => drawFire(c, f))),
     flood: [0, 1].map((f) => makeTile((c) => drawFlood(c, f))),

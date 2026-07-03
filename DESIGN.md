@@ -213,6 +213,29 @@ the city RNG inside the tick, so disasters replay deterministically.
 
 Sim → UI messaging: `city.messages` queue drained by the ticker each frame.
 
+## Content (phase 6)
+
+**Cap-lifters**: stadium (§3000, 4×4), seaport (§5000, 4×4), airport (§10000,
+6×6). Without them each sector's demand valve is clamped to fade out as its
+population approaches a cap (R 1200 / I 700 / C 700 zone-pop); the census tracks
+presence and the ticker nags yearly when a cap binds. Seaport and airport add
+pollution sources.
+
+**Ordinances**: 10 toggles on `city.ordinances`, defined in `ordinances.ts` with
+an annual § effect that flows into the budget's `ordinanceNet` line, plus factor
+hooks read by crime (gambling/anti-drug/watch), pollution (controls/energy
+conservation), demand (clinics/smoking ban/reading/tourism/parking/controls), and
+approval. Deliberately mild — they shade the RCI loop, never dominate it.
+
+**Scenarios**: the eight classics in `scenarios.ts`. Each defines terrain, start
+year (the clock is city-relative now), funds, a hand-authored starting city
+(stamped road-grid towns with powered zones at a given stage, plants, stations,
+and cap-lifters for the big metropolises), an optional start/recurring disaster,
+a win predicate checked twice a month, and a deadline. Outcomes land on
+`city.scenario.outcome`; the UI shows briefing and verdict modals, and the city
+keeps simulating afterward either way. Win targets sit meaningfully above the
+stamped starting populations so recovery scenarios demand actual rebuilding.
+
 ## Phase status
 
 Phase 1: scaffold, RNG, city state, terrain + 5 curated maps, tick clock, tile
@@ -223,7 +246,8 @@ trip generation with access gating, traffic/pollution/land value/crime/coverage/
 population maps, 9 overlay views, query tool. Phase 4: annual budget cycle with
 tax + funding sliders, infrastructure decay, auto-budget, evaluation window.
 Phase 5: all seven disasters with random rolls, the Disasters menu, and the
-message ticker queue.
+message ticker queue. Phase 6: stadium/seaport/airport cap-lifters, the
+10-ordinance layer, and the eight classic scenarios with briefing/verdict flow.
 
-Stubbed: scenarios, ordinances, stadium/seaport/airport, minimap, save/load,
-audio, plant capacity limits, traffic animation.
+Stubbed: minimap, save/load, audio, plant capacity limits, traffic animation,
+final art pass.

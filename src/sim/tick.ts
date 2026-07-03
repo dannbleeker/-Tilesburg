@@ -14,6 +14,7 @@ import {
   decayTraffic,
 } from './maps';
 import { scanPower } from './power';
+import { checkScenario } from './scenarios';
 import { generateTraffic } from './traffic';
 import { scanZones } from './zones';
 
@@ -31,6 +32,7 @@ export function tick(city: City): void {
     takeCensus(city);
     evaluateDemand(city);
   }
+  checkScenario(city);
   collectBudget(city);
 }
 

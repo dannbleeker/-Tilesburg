@@ -32,7 +32,7 @@ describe('budget assessment', () => {
   });
 
   it('tax income scales with population and rate', () => {
-    city.census = { resPop: 600, comPop: 200, indPop: 200 };
+    city.census = { ...city.census, resPop: 600, comPop: 200, indPop: 200 };
     city.taxRate = 7;
     const at7 = assessBudget(city).taxIncome;
     city.taxRate = 14;
@@ -45,7 +45,7 @@ describe('budget assessment', () => {
 
   it('settles funds by income minus funded expenses', () => {
     applyTool(city, 'police', 10, 10);
-    city.census = { resPop: 1000, comPop: 0, indPop: 0 };
+    city.census = { ...city.census, resPop: 1000, comPop: 0, indPop: 0 };
     city.funding.police = 0.5;
     const s = assessBudget(city);
     const before = city.funds;
@@ -95,7 +95,7 @@ describe('january cycle in the tick pipeline', () => {
 
   it('settles silently when auto-budget is on', () => {
     city.autoBudget = true;
-    city.census = { resPop: 100, comPop: 0, indPop: 0 };
+    city.census = { ...city.census, resPop: 100, comPop: 0, indPop: 0 };
     for (let i = 0; i < TICKS_PER_YEAR; i++) tick(city);
     expect(city.pendingBudget).toBeNull();
   });
@@ -103,7 +103,7 @@ describe('january cycle in the tick pipeline', () => {
 
 describe('tax drag on demand', () => {
   it('raising taxes suppresses all three valves', () => {
-    city.census = { resPop: 300, comPop: 100, indPop: 100 };
+    city.census = { ...city.census, resPop: 300, comPop: 100, indPop: 100 };
     city.taxRate = 7;
     evaluateDemand(city);
     const base = { ...city.demand };
@@ -118,14 +118,14 @@ describe('tax drag on demand', () => {
 describe('evaluation', () => {
   it('classifies city size', () => {
     expect(CITY_CLASSES.find((c) => 0 >= c.min)?.name).toBe('Village');
-    city.census = { resPop: 0, comPop: 0, indPop: 0 };
+    city.census = { ...city.census, resPop: 0, comPop: 0, indPop: 0 };
     expect(evaluate(city).cityClass).toBe('Village');
-    city.census = { resPop: 400, comPop: 150, indPop: 150 }; // ×20 = 14,000
+    city.census = { ...city.census, resPop: 400, comPop: 150, indPop: 150 }; // ×20 = 14,000
     expect(evaluate(city).cityClass).toBe('City');
   });
 
   it('unemployment and taxes surface as complaints and drag approval', () => {
-    city.census = { resPop: 1000, comPop: 0, indPop: 0 };
+    city.census = { ...city.census, resPop: 1000, comPop: 0, indPop: 0 };
     city.taxRate = 20;
     const ev = evaluate(city);
     const names = ev.complaints.map((c) => c.name);
@@ -135,13 +135,13 @@ describe('evaluation', () => {
   });
 
   it('a healthy small town keeps approval high', () => {
-    city.census = { resPop: 300, comPop: 120, indPop: 120 };
+    city.census = { ...city.census, resPop: 300, comPop: 120, indPop: 120 };
     const ev = evaluate(city);
     expect(ev.approval).toBeGreaterThan(70);
   });
 
   it('tracks net migration against last January', () => {
-    city.census = { resPop: 100, comPop: 0, indPop: 0 };
+    city.census = { ...city.census, resPop: 100, comPop: 0, indPop: 0 };
     city.lastYearPop = 1000;
     expect(evaluate(city).netMigration).toBe(100 * 20 - 1000);
   });

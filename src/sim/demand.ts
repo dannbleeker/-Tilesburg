@@ -1,5 +1,6 @@
 import type { City } from './city';
-import { DEMAND_MAX, MAP_SIZE, POP_PER_STAGE, Tile } from './constants';
+import { DEMAND_MAX, MAP_SIZE, POP_PER_STAGE, TICKS_PER_YEAR, Tile } from './constants';
+import { demandDeltas } from './ordinances';
 
 /**
  * External market pull: the reason a brand-new city has positive demand at
@@ -8,11 +9,14 @@ import { DEMAND_MAX, MAP_SIZE, POP_PER_STAGE, Tile } from './constants';
  */
 const EXTERNAL_MARKET = 600;
 
-/** Recount zone populations from the grid (anchor cells only). */
+/** Recount zone populations and cap-lifters from the grid (anchor cells only). */
 export function takeCensus(city: City): void {
   let resPop = 0;
   let comPop = 0;
   let indPop = 0;
+  let hasStadium = false;
+  let hasSeaport = false;
+  let hasAirport = false;
   const { tiles, anchor, stage } = city;
   for (let i = 0; i < MAP_SIZE; i++) {
     if (anchor[i] !== i) continue;
@@ -20,8 +24,11 @@ export function takeCensus(city: City): void {
     if (tiles[i] === Tile.ZoneR) resPop += pop;
     else if (tiles[i] === Tile.ZoneC) comPop += pop;
     else if (tiles[i] === Tile.ZoneI) indPop += pop;
+    else if (tiles[i] === Tile.Stadium) hasStadium = true;
+    else if (tiles[i] === Tile.Seaport) hasSeaport = true;
+    else if (tiles[i] === Tile.Airport) hasAirport = true;
   }
-  city.census = { resPop, comPop, indPop };
+  city.census = { resPop, comPop, indPop, hasStadium, hasSeaport, hasAirport };
 }
 
 function clampValve(v: number): number {
@@ -45,9 +52,25 @@ export function evaluateDemand(city: City): void {
   // Every point above the default 7% tax scares the market off; cheap taxes
   // give a small edge.
   const taxDrag = (city.taxRate - 7) * 60;
-  city.demand = {
-    r: clampValve((jobs * 1.4 + EXTERNAL_MARKET - labor) * 2 - taxDrag),
-    c: clampValve((labor * 0.5 - comPop) * 3 + 100 - taxDrag),
-    i: clampValve((labor * 0.7 - indPop) * 3 + 300 - taxDrag),
-  };
+  const o = demandDeltas(city);
+  let r = (jobs * 1.4 + EXTERNAL_MARKET - labor) * 2 - taxDrag + o.r;
+  let c = (labor * 0.5 - comPop) * 3 + 100 - taxDrag + o.c;
+  let i = (labor * 0.7 - indPop) * 3 + 300 - taxDrag + o.i;
+
+  // Cap-lifters: past a certain size each sector stalls until the city
+  // builds its stadium (R), seaport (I), or airport (C).
+  const capped = (value: number, popNow: number, cap: number, has: boolean): number =>
+    has ? value : Math.min(value, (cap - popNow) * 5);
+  r = capped(r, resPop, 1200, city.census.hasStadium);
+  i = capped(i, indPop, 700, city.census.hasSeaport);
+  c = capped(c, comPop, 700, city.census.hasAirport);
+
+  city.demand = { r: clampValve(r), c: clampValve(c), i: clampValve(i) };
+
+  // Nag once a year when a cap is actually binding.
+  if (city.cityTime % TICKS_PER_YEAR === 0 && city.cityTime > 0) {
+    if (!city.census.hasStadium && resPop > 1000) city.messages.push('Residents demand a stadium!');
+    if (!city.census.hasSeaport && indPop > 550) city.messages.push('Industry requires a seaport!');
+    if (!city.census.hasAirport && comPop > 550) city.messages.push('Commerce requires an airport!');
+  }
 }

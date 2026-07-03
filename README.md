@@ -28,6 +28,7 @@ npm run build      # typecheck + production build
 | `Z` / `X` / `C` | Residential / Commercial / Industrial zone |
 | `O` / `F` | Police station / Fire station |
 | `P` / `N` | Coal plant / Nuclear plant |
+| `S` / `H` / `A` | Stadium / Seaport / Airport |
 | `Q` | Query tool |
 | `M` | Cycle overlay maps |
 | `G` / `E` | Budget window / City evaluation |
@@ -35,9 +36,17 @@ npm run build      # typecheck + production build
 | `Space` | Pause toggle |
 | `0` `1` `2` `3` | Paused / slow / normal / fast |
 
+## Scenarios
+
+All eight classics are playable from the picker: San Francisco 1906
+(earthquake), Hamburg 1944 (firestorm), Bern 1965 (traffic), Tokyo 1957
+(monster), Detroit 1972 (crime), Boston 2010 (meltdown), Rio de Janeiro 2047
+(coastal flooding), and Dullsville 1900 (boredom). Each has a hand-authored
+starting city, a goal, and a time limit; win or lose, the city keeps running.
+
 ## Status
 
-Phase 5 of 7 (chaos) — see `DESIGN.md` for the data model and tick
+Phase 6 of 7 (content) — see `DESIGN.md` for the data model and tick
 pipeline, and `ART_DIRECTION.md` for the visual rules. Working now: seeded
 deterministic terrain (5 curated maps + random), roads/bridges, rail with
 level crossings and water trestles, power lines with crossings and underwater
@@ -51,8 +60,10 @@ transit is underfunded), a city evaluation window, and all seven disasters —
 fire (suppressed by fire coverage), flood, tornado, earthquake, monster
 (hunts pollution), plane crash, and nuclear meltdown with radioactive
 fallout — random (toggleable) or triggered from the Disasters menu, with a
-message ticker. 101-test Vitest suite.
+message ticker. Plus the phase-6 content: stadium/seaport/airport demand
+cap-lifters with yearly nags, the 10-ordinance City Ordinances window wired
+into budget/crime/pollution/demand/approval, and all eight scenarios with
+briefing and verdict windows. 112-test Vitest suite.
 
-Coming next per the delivery plan: scenarios + ordinances +
-stadium/seaport/airport, then the final polish pass (audio, minimap,
-save/load, traffic animation).
+Coming next per the delivery plan: the final polish pass (audio, minimap,
+save/load, animations, performance).

@@ -234,6 +234,12 @@ export class MapRenderer {
         return ts.nuclear;
       case Tile.Police:
         return ts.police;
+      case Tile.Stadium:
+        return ts.stadium;
+      case Tile.Seaport:
+        return ts.seaport;
+      case Tile.Airport:
+        return ts.airport;
       default:
         return ts.fireStation;
     }

@@ -1,5 +1,6 @@
 import type { City } from './city';
 import { Flag, FOOTPRINT, isZone, MAP_SIZE, Tile, type BuildingType } from './constants';
+import { approvalBonus } from './ordinances';
 
 /** People per point of zone population (the classic multiplier feel). */
 export const POP_MULTIPLIER = 20;
@@ -35,6 +36,9 @@ const BUILDING_VALUE: Partial<Record<number, number>> = {
   [Tile.FireStation]: 500,
   [Tile.Coal]: 3000,
   [Tile.Nuclear]: 5000,
+  [Tile.Stadium]: 3000,
+  [Tile.Seaport]: 5000,
+  [Tile.Airport]: 10000,
 };
 
 export function cityPopulation(city: City): number {
@@ -101,7 +105,8 @@ export function evaluate(city: City): Evaluation {
       0,
       Math.min(
         100,
-        90 -
+        90 +
+          approvalBonus(city) -
           crimeAvg * 0.5 -
           pollAvg * 0.4 -
           trafficAvg * 0.2 -

@@ -13,6 +13,9 @@ export type ToolId =
   | 'fire'
   | 'coal'
   | 'nuclear'
+  | 'stadium'
+  | 'seaport'
+  | 'airport'
   | 'query';
 
 export interface ToolInfo {
@@ -36,6 +39,9 @@ export const TOOL_INFO: Record<ToolId, ToolInfo> = {
   fire: { name: 'Fire station', cost: COST.fire, hotkey: 'F', drag: false },
   coal: { name: 'Coal plant', cost: COST.coal, hotkey: 'P', drag: false },
   nuclear: { name: 'Nuclear plant', cost: COST.nuclear, hotkey: 'N', drag: false },
+  stadium: { name: 'Stadium', cost: COST.stadium, hotkey: 'S', drag: false },
+  seaport: { name: 'Seaport', cost: COST.seaport, hotkey: 'H', drag: false },
+  airport: { name: 'Airport', cost: COST.airport, hotkey: 'A', drag: false },
   query: { name: 'Query', cost: 0, hotkey: 'Q', drag: false },
 };
 
@@ -47,6 +53,9 @@ const BUILDING_TOOL: Partial<Record<ToolId, { type: BuildingType; cost: number }
   fire: { type: Tile.FireStation, cost: COST.fire },
   coal: { type: Tile.Coal, cost: COST.coal },
   nuclear: { type: Tile.Nuclear, cost: COST.nuclear },
+  stadium: { type: Tile.Stadium, cost: COST.stadium },
+  seaport: { type: Tile.Seaport, cost: COST.seaport },
+  airport: { type: Tile.Airport, cost: COST.airport },
 };
 
 export interface ToolResult {
@@ -240,8 +249,9 @@ function placeWire(city: City, x: number, y: number): ToolResult {
  */
 function placeBuilding(city: City, type: BuildingType, baseCost: number, cx: number, cy: number): ToolResult {
   const size = FOOTPRINT[type];
-  const ax = cx - 1;
-  const ay = cy - 1;
+  const off = Math.floor((size - 1) / 2);
+  const ax = cx - off;
+  const ay = cy - off;
 
   let treeCount = 0;
   for (let dy = 0; dy < size; dy++) {

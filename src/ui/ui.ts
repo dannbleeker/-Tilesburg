@@ -12,7 +12,9 @@ import {
 import { getDate, type BudgetSummary, type City } from '../sim/city';
 import { DEMAND_MAX, SPEEDS, type SpeedId } from '../sim/constants';
 import { evaluate } from '../sim/evaluation';
+import { ORDINANCES } from '../sim/ordinances';
 import type { TileInfo } from '../sim/query';
+import { SCENARIOS, type ScenarioDef } from '../sim/scenarios';
 import { STARTER_MAPS } from '../sim/terrain';
 import { TOOL_INFO, type ToolId } from '../sim/tools';
 
@@ -34,6 +36,12 @@ const TOOL_ICONS: Record<ToolId | 'pan', string> = {
   coal: '<svg viewBox="0 0 24 24"><path d="M4 21v-8h16v8zM6 4h3v7H6zm9 0h3v7h-3z"/><path d="M13 14l-2 3h2l-2 3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
   nuclear:
     '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M12 4a8 8 0 014.6 1.5l-3.2 5A2.5 2.5 0 0012 10zM19.6 16a8 8 0 01-4.4 4.7l-1.9-5.6a2.5 2.5 0 001.4-2.1zM4.4 16l5-1a2.5 2.5 0 001.4 2.1L8.9 20.7A8 8 0 014.4 16z" opacity=".9"/></svg>',
+  stadium:
+    '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="7" fill="none" stroke="currentColor" stroke-width="2.5"/><ellipse cx="12" cy="12" rx="4" ry="2.5"/></svg>',
+  seaport:
+    '<svg viewBox="0 0 24 24"><path d="M11 3h2v10h6l-7 8-7-8h6z"/><rect x="3" y="19" width="18" height="2"/></svg>',
+  airport:
+    '<svg viewBox="0 0 24 24"><path d="M22 14l-8-4V4a2 2 0 00-4 0v6l-8 4v2l8-2v4l-3 2v2l5-1 5 1v-2l-3-2v-4l8 2z"/></svg>',
   query:
     '<svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><rect x="14.5" y="13" width="8" height="3" transform="rotate(45 14.5 13)"/></svg>',
 };
@@ -58,7 +66,7 @@ const SPEED_BUTTONS: SpeedButton[] = [
 ];
 
 export interface UICallbacks {
-  onNewMap: (starterIndex: number | 'random') => void;
+  onNewMap: (choice: number | 'random' | { scenarioId: string }) => void;
   onOverlay: (id: OverlayId) => void;
 }
 
@@ -83,6 +91,7 @@ export class UI {
   private modalOpen = false;
   private prevModalSpeed: SpeedId = 'normal';
   private city: City | null = null;
+  private outcomeShown = false;
   private toolButtons = new Map<ToolSelection, HTMLButtonElement>();
   private speedButtons = new Map<SpeedId, HTMLButtonElement>();
   private messageTimer = 0;
@@ -107,24 +116,37 @@ export class UI {
 
     const mapPicker = document.createElement('select');
     mapPicker.className = 'map-picker';
-    mapPicker.title = 'Starter map';
+    mapPicker.title = 'Starter map or scenario';
+    const mapsGroup = document.createElement('optgroup');
+    mapsGroup.label = 'Maps';
     for (const [i, m] of STARTER_MAPS.entries()) {
       const opt = document.createElement('option');
       opt.value = String(i);
       opt.textContent = m.name;
-      mapPicker.appendChild(opt);
+      mapsGroup.appendChild(opt);
     }
     const randomOpt = document.createElement('option');
     randomOpt.value = 'random';
     randomOpt.textContent = 'Random map';
-    mapPicker.appendChild(randomOpt);
+    mapsGroup.appendChild(randomOpt);
+    mapPicker.appendChild(mapsGroup);
+    const scenarioGroup = document.createElement('optgroup');
+    scenarioGroup.label = 'Scenarios';
+    for (const s of SCENARIOS) {
+      const opt = document.createElement('option');
+      opt.value = `scenario:${s.id}`;
+      opt.textContent = s.name;
+      scenarioGroup.appendChild(opt);
+    }
+    mapPicker.appendChild(scenarioGroup);
     bar.appendChild(mapPicker);
 
     const newMapBtn = document.createElement('button');
     newMapBtn.textContent = 'New city';
     newMapBtn.addEventListener('click', () => {
       const v = mapPicker.value;
-      this.callbacks.onNewMap(v === 'random' ? 'random' : Number(v));
+      if (v.startsWith('scenario:')) this.callbacks.onNewMap({ scenarioId: v.slice(9) });
+      else this.callbacks.onNewMap(v === 'random' ? 'random' : Number(v));
     });
     bar.appendChild(newMapBtn);
 
@@ -152,6 +174,11 @@ export class UI {
     evalBtn.title = 'City evaluation (E)';
     evalBtn.addEventListener('click', () => this.openEvaluation());
     bar.appendChild(evalBtn);
+
+    const ordBtn = document.createElement('button');
+    ordBtn.textContent = 'Ordinances';
+    ordBtn.addEventListener('click', () => this.openOrdinances());
+    bar.appendChild(ordBtn);
 
     const disasterBtn = document.createElement('button');
     disasterBtn.textContent = 'Disasters';
@@ -346,8 +373,10 @@ export class UI {
     const renderFlow = () => {
       const net = cashFlow(city, summary);
       const sign = net >= 0 ? '+' : '−';
+      const ord = summary.ordinanceNet;
       flowEl.innerHTML = [
         row('Tax income', `§${summary.taxIncome.toLocaleString('en-US')}`),
+        row('Ordinances', `${ord >= 0 ? '+' : '−'}§${Math.abs(ord).toLocaleString('en-US')}`),
         row('Cash flow', `${sign}§${Math.abs(net).toLocaleString('en-US')}`),
         row('Funds after', `§${(city.funds + (pending ? net : 0)).toLocaleString('en-US')}`),
       ].join('');
@@ -375,6 +404,80 @@ export class UI {
     });
     panel.appendChild(cont);
 
+    this.openModal(panel);
+  }
+
+  /** City ordinances: 10 toggles with their estimated annual § effect. */
+  openOrdinances(): void {
+    const city = this.city;
+    if (!city) return;
+    const panel = document.createElement('div');
+    panel.className = 'modal-panel modal-wide';
+    panel.innerHTML = '<div class="modal-title">City ordinances</div>';
+
+    for (const o of ORDINANCES) {
+      const rowEl = document.createElement('label');
+      rowEl.className = 'ordinance-row';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = !!city.ordinances[o.id];
+      box.addEventListener('change', () => (city.ordinances[o.id] = box.checked));
+      const name = document.createElement('span');
+      name.className = 'ordinance-name';
+      name.textContent = o.name;
+      const blurb = document.createElement('span');
+      blurb.className = 'ordinance-blurb';
+      blurb.textContent = o.blurb;
+      const net = o.annualNet(city);
+      const cost = document.createElement('span');
+      cost.className = 'modal-value';
+      cost.textContent = net >= 0 ? `+§${net}/yr` : `−§${-net}/yr`;
+      rowEl.append(box, name, blurb, cost);
+      panel.appendChild(rowEl);
+    }
+
+    const close = document.createElement('button');
+    close.className = 'modal-continue';
+    close.textContent = 'Close';
+    close.addEventListener('click', () => this.closeModal());
+    panel.appendChild(close);
+    this.openModal(panel);
+  }
+
+  /** Scenario briefing at start, and the win/lose verdicts. */
+  showScenarioIntro(def: ScenarioDef): void {
+    const panel = document.createElement('div');
+    panel.className = 'modal-panel';
+    panel.innerHTML = [
+      `<div class="modal-title">${def.name}</div>`,
+      `<p class="modal-text">${def.description}</p>`,
+      `<p class="modal-text"><strong>Goal:</strong> ${def.goal}</p>`,
+      `<p class="modal-text"><strong>Time limit:</strong> ${def.timeLimitYears} years · <strong>Funds:</strong> §${def.funds.toLocaleString('en-US')}</p>`,
+    ].join('');
+    const go = document.createElement('button');
+    go.className = 'modal-continue';
+    go.textContent = 'Begin';
+    go.addEventListener('click', () => this.closeModal());
+    panel.appendChild(go);
+    this.openModal(panel);
+  }
+
+  private showScenarioOutcome(won: boolean, def: ScenarioDef): void {
+    const panel = document.createElement('div');
+    panel.className = 'modal-panel';
+    panel.innerHTML = [
+      `<div class="modal-title">${won ? 'Scenario won!' : 'Scenario lost'}</div>`,
+      `<p class="modal-text">${
+        won
+          ? `${def.name}: you did it. ${def.goal}`
+          : `${def.name}: time ran out. The city plays on in sandbox mode.`
+      }</p>`,
+    ].join('');
+    const ok = document.createElement('button');
+    ok.className = 'modal-continue';
+    ok.textContent = 'Continue';
+    ok.addEventListener('click', () => this.closeModal());
+    panel.appendChild(ok);
     this.openModal(panel);
   }
 
@@ -586,6 +689,7 @@ export class UI {
   }
 
   update(city: City): void {
+    if (this.city !== city) this.outcomeShown = false; // new game
     this.city = city;
     this.fundsEl.textContent = `§${city.funds.toLocaleString('en-US')}`;
     const d = getDate(city);
@@ -597,6 +701,14 @@ export class UI {
     }
     // The sim posted a January budget for review.
     if (city.pendingBudget && !this.modalOpen) this.openBudget(true);
+    // Scenario verdicts.
+    if (city.scenario && city.scenario.outcome !== 'open' && !this.outcomeShown && !this.modalOpen) {
+      const def = SCENARIOS.find((s) => s.id === city.scenario?.id);
+      if (def) {
+        this.outcomeShown = true;
+        this.showScenarioOutcome(city.scenario.outcome === 'won', def);
+      }
+    }
   }
 
   // Each bar fills up or down from the track's midline with the sign of the

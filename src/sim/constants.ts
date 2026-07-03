@@ -35,6 +35,10 @@ export const Tile = {
   Fire: 19,
   Flood: 20,
   Radioactive: 21,
+  // Cap-lifter buildings.
+  Stadium: 22,
+  Seaport: 23,
+  Airport: 24,
 } as const;
 export type TileType = (typeof Tile)[keyof typeof Tile];
 
@@ -45,10 +49,13 @@ export type BuildingType =
   | typeof Tile.Coal
   | typeof Tile.Nuclear
   | typeof Tile.Police
-  | typeof Tile.FireStation;
+  | typeof Tile.FireStation
+  | typeof Tile.Stadium
+  | typeof Tile.Seaport
+  | typeof Tile.Airport;
 
 export function isBuilding(t: number): t is BuildingType {
-  return t >= Tile.ZoneR && t <= Tile.FireStation;
+  return (t >= Tile.ZoneR && t <= Tile.FireStation) || (t >= Tile.Stadium && t <= Tile.Airport);
 }
 
 export function isZone(t: number): boolean {
@@ -81,6 +88,9 @@ export const FOOTPRINT: Record<BuildingType, number> = {
   [Tile.Nuclear]: 4,
   [Tile.Police]: 3,
   [Tile.FireStation]: 3,
+  [Tile.Stadium]: 4,
+  [Tile.Seaport]: 4,
+  [Tile.Airport]: 6,
 };
 
 /** Highest zone growth stage (0 = freshly zoned, empty). */
@@ -120,6 +130,9 @@ export const COST = {
   fire: 500,
   coal: 3000,
   nuclear: 5000,
+  stadium: 3000,
+  seaport: 5000,
+  airport: 10000,
 } as const;
 
 /** Max trip length (in transport tiles) for a zone to find a counterpart. */

@@ -1,5 +1,6 @@
 import type { City } from './city';
 import { MAP_H, MAP_SIZE, MAP_W, Tile } from './constants';
+import { coalPollutionFactor, crimeFactor, industrialPollutionFactor } from './ordinances';
 
 // Shared scratch buffers for the diffusion passes (sim is single-threaded).
 const scratchA = new Float32Array(MAP_SIZE);
@@ -65,15 +66,21 @@ export function computePopDensity(city: City): void {
  */
 export function computePollution(city: City): void {
   const { tiles, anchor, stage, trafficDensity } = city;
+  const indFactor = industrialPollutionFactor(city);
+  const coalFactor = coalPollutionFactor(city);
   scratchA.fill(0);
   for (let i = 0; i < MAP_SIZE; i++) {
     const t = tiles[i];
     let v = 0;
     if (t === Tile.ZoneI) {
       const a = anchor[i];
-      v = 40 + (a >= 0 ? stage[a] * 15 : 0);
+      v = (40 + (a >= 0 ? stage[a] * 15 : 0)) * indFactor;
     } else if (t === Tile.Coal) {
-      v = 90;
+      v = 90 * coalFactor;
+    } else if (t === Tile.Seaport) {
+      v = 40;
+    } else if (t === Tile.Airport) {
+      v = 50;
     } else if (t === Tile.Fire) {
       v = 70;
     } else if (t === Tile.Radioactive) {
@@ -141,11 +148,12 @@ export function computeLandValue(city: City): void {
  */
 export function computeCrime(city: City): void {
   const { popDensity, landValue, policeCov } = city;
+  const factor = crimeFactor(city);
   scratchA.fill(0);
   for (let i = 0; i < MAP_SIZE; i++) {
     const pop = popDensity[i];
     if (pop === 0) continue;
-    const raw = pop * 1.1 + Math.max(0, 70 - landValue[i]) - policeCov[i] * 1.4;
+    const raw = (pop * 1.1 + Math.max(0, 70 - landValue[i])) * factor - policeCov[i] * 1.4;
     scratchA[i] = Math.max(0, raw);
   }
   diffuseInto(city.crime, 1);

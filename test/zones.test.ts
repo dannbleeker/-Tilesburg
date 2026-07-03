@@ -87,14 +87,14 @@ describe('demand model', () => {
   });
 
   it('a large jobless population turns residential demand negative', () => {
-    city.census = { resPop: 2000, comPop: 0, indPop: 0 };
+    city.census = { ...city.census, resPop: 2000, comPop: 0, indPop: 0 };
     evaluateDemand(city);
     expect(city.demand.r).toBeLessThan(0);
     expect(city.demand.c).toBeGreaterThan(0); // all those residents want shops
   });
 
   it('jobs pull residents back in', () => {
-    city.census = { resPop: 1000, comPop: 400, indPop: 600 };
+    city.census = { ...city.census, resPop: 1000, comPop: 400, indPop: 600 };
     evaluateDemand(city);
     expect(city.demand.r).toBeGreaterThan(0);
   });

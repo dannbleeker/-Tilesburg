@@ -24,6 +24,10 @@ export interface Census {
   resPop: number;
   comPop: number;
   indPop: number;
+  /** Cap-lifters present on the map (checked during the census). */
+  hasStadium: boolean;
+  hasSeaport: boolean;
+  hasAirport: boolean;
 }
 
 /** Department funding levels, 0..1 (the budget window's sliders). */
@@ -41,6 +45,8 @@ export interface BudgetSummary {
   policeMaint: number;
   fireMaint: number;
   transitMaint: number;
+  /** Net § from active ordinances (positive = income). */
+  ordinanceNet: number;
 }
 
 // The whole city is plain data + typed arrays: fully serializable, no DOM,
@@ -89,6 +95,18 @@ export interface City {
   floodTicks: number;
   /** Sim events for the message ticker; the UI drains this each frame. */
   messages: string[];
+  /** Founding year shown on the clock (scenarios override 1900). */
+  startYear: number;
+  ordinances: Record<string, boolean>;
+  /** Active scenario progress; null in sandbox play. */
+  scenario: ScenarioState | null;
+}
+
+export interface ScenarioState {
+  id: string;
+  /** cityTime at which the scenario is judged lost if not won. */
+  deadline: number;
+  outcome: 'open' | 'won' | 'lost';
 }
 
 export interface DisasterActor {
@@ -126,7 +144,7 @@ export function createCity(seed: number, params: TerrainParams): City {
     seed,
     rng,
     demand: { r: 0, c: 0, i: 0 },
-    census: { resPop: 0, comPop: 0, indPop: 0 },
+    census: { resPop: 0, comPop: 0, indPop: 0, hasStadium: false, hasSeaport: false, hasAirport: false },
     taxRate: 7,
     funding: { police: 1, fire: 1, transit: 1 },
     autoBudget: false,
@@ -137,6 +155,9 @@ export function createCity(seed: number, params: TerrainParams): City {
     tornado: null,
     floodTicks: 0,
     messages: [],
+    startYear: START_YEAR,
+    ordinances: {},
+    scenario: null,
   };
 }
 
@@ -174,7 +195,7 @@ export interface CityDate {
 export function getDate(city: City): CityDate {
   const months = Math.floor(city.cityTime / TICKS_PER_MONTH);
   return {
-    year: START_YEAR + Math.floor(city.cityTime / TICKS_PER_YEAR),
+    year: city.startYear + Math.floor(city.cityTime / TICKS_PER_YEAR),
     month: months % 12,
   };
 }

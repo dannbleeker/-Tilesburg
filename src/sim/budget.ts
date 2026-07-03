@@ -1,5 +1,6 @@
 import type { BudgetSummary, City } from './city';
-import { MAP_SIZE, START_YEAR, TICKS_PER_YEAR, Tile } from './constants';
+import { MAP_SIZE, TICKS_PER_YEAR, Tile } from './constants';
+import { ordinanceNet } from './ordinances';
 
 // Annual maintenance per the original's feel: stations are the big line
 // items, transport is per-tile.
@@ -29,11 +30,12 @@ export function assessBudget(city: City): BudgetSummary {
   }
   const pop = city.census.resPop + city.census.comPop + city.census.indPop;
   return {
-    year: START_YEAR + Math.floor(city.cityTime / TICKS_PER_YEAR),
+    year: city.startYear + Math.floor(city.cityTime / TICKS_PER_YEAR),
     taxIncome: Math.round(pop * city.taxRate * TAX_YIELD),
     policeMaint: (police / 9) * STATION_MAINT, // 9 cells per 3x3 station
     fireMaint: (fire / 9) * STATION_MAINT,
     transitMaint: roadTiles * ROAD_MAINT + railTiles * RAIL_MAINT,
+    ordinanceNet: ordinanceNet(city),
   };
 }
 
@@ -44,7 +46,8 @@ export function fundedCost(maint: number, funding: number): number {
 
 export function cashFlow(city: City, s: BudgetSummary): number {
   return (
-    s.taxIncome -
+    s.taxIncome +
+    s.ordinanceNet -
     fundedCost(s.policeMaint, city.funding.police) -
     fundedCost(s.fireMaint, city.funding.fire) -
     fundedCost(s.transitMaint, city.funding.transit)

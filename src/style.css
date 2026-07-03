@@ -170,6 +170,8 @@ button.active {
   gap: 4px;
   padding: 8px 6px;
   z-index: 10;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .toolbar .tool {
@@ -300,6 +302,34 @@ button.active {
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--ui-accent);
+}
+
+.modal-wide {
+  width: 460px;
+}
+
+.modal-text {
+  font-size: 13px;
+  margin: 6px 0;
+  line-height: 1.45;
+}
+
+.ordinance-row {
+  display: grid;
+  grid-template-columns: 18px 130px 1fr 70px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ordinance-name {
+  font-weight: 600;
+}
+
+.ordinance-blurb {
+  opacity: 0.7;
 }
 
 .disaster-grid {

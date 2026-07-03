@@ -24,6 +24,9 @@ const TILE_NAMES: Record<number, string> = {
   [Tile.Fire]: 'Fire!',
   [Tile.Flood]: 'Flood water',
   [Tile.Radioactive]: 'Radioactive waste',
+  [Tile.Stadium]: 'Stadium',
+  [Tile.Seaport]: 'Seaport',
+  [Tile.Airport]: 'Airport',
 };
 
 const STAGE_NAMES = ['Undeveloped', 'Low density', 'Medium density', 'High density', 'Top density'];
