@@ -15,6 +15,8 @@ export interface InputOptions {
   onQuery: (x: number, y: number, pageX: number, pageY: number) => void;
   /** Any other interaction — dismisses a query popup. */
   onDismiss: () => void;
+  /** A click actually built/cleared something (for SFX). */
+  onPlaced: (tool: ToolId) => void;
 }
 
 /**
@@ -61,8 +63,12 @@ export function setupInput(opts: InputOptions): void {
       const cell = cellAt(e);
       lastCell = cell;
       const r = applyTool(opts.getCity(), tool, cell.x, cell.y);
-      if (r.ok) dragCost += r.cost;
-      else if (r.reason) opts.onToolError(r.reason);
+      if (r.ok) {
+        dragCost += r.cost;
+        if (r.cost > 0) opts.onPlaced(tool);
+      } else if (r.reason) {
+        opts.onToolError(r.reason);
+      }
       const p = localPos(e);
       opts.onDragCost(dragCost, p.x, p.y);
     } else if (e.button === 0 || e.button === 1 || e.button === 2) {

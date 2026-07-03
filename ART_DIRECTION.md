@@ -132,5 +132,17 @@ Font: system UI stack; tabular numerals for funds and date.
 - **Monster** — boxy kaiju in the tree-green pair with `wireYellow` eyes and
   back spines, 2× tile size.
 
-Later phases extend this file with stadium/seaport/airport sprites and traffic
-animation specs before any of that art is drawn.
+## Per-tile specs (phases 6–7)
+
+- **Stadium** — pad; concentric `rubbleHi`/`rubble` stands around a `rZone`
+  field with a `laneline` center line.
+- **Seaport** — pad; `water` berth along the south with `asphalt` piers,
+  container blocks in the zone identity pairs, `wireYellow` crane.
+- **Airport** — pad; `asphalt` runway with `laneline` centerline dashes,
+  taxiway, NW-lit terminal with windows, `cZone` tower.
+- **Traffic** — 2-frame car dots (alternating `uiText` / `alertRedHi`, 3×4 px)
+  along the travel axis; two density tiers add cars. Baked as road texture
+  variants, swapped by per-cell traffic level.
+- **Coal smoke** — 2-frame `pad`-grey puffs drifting off the stacks.
+- **Minimap** — 1 px per tile in simplified palette colors with a `uiText`
+  viewport box.

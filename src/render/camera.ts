@@ -52,6 +52,25 @@ export class Camera {
     };
   }
 
+  /** Visible region in tile coordinates (for the minimap viewport box). */
+  viewTileRect(): { x: number; y: number; w: number; h: number } {
+    const t = TILE_PX * this.scale;
+    return {
+      x: -this.world.x / t,
+      y: -this.world.y / t,
+      w: this.viewW / t,
+      h: this.viewH / t,
+    };
+  }
+
+  /** Center the viewport on a tile (minimap click-to-jump). */
+  centerOnTile(tx: number, ty: number): void {
+    const t = TILE_PX * this.scale;
+    this.world.x = this.viewW / 2 - (tx + 0.5) * t;
+    this.world.y = this.viewH / 2 - (ty + 0.5) * t;
+    this.clamp();
+  }
+
   // Keep the map on screen: center it on axes where it's smaller than the
   // viewport, otherwise don't let its edge pull past the viewport edge.
   private clamp(): void {

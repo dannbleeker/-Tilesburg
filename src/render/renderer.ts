@@ -36,6 +36,7 @@ export class MapRenderer {
   private shadowTiles = new Uint16Array(MAP_SIZE);
   private shadowStage = new Uint8Array(MAP_SIZE);
   private shadowPower = new Uint8Array(MAP_SIZE);
+  private shadowTraffic = new Uint8Array(MAP_SIZE);
   private dirty = new Uint8Array(MAP_SIZE);
   private waterFrame = 0;
   private lastWaterFlip = 0;
@@ -90,7 +91,14 @@ export class MapRenderer {
     this.shadowTiles.fill(0xffff);
     this.shadowStage.fill(0xff);
     this.shadowPower.fill(0xff);
+    this.shadowTraffic.fill(0xff);
     this.update(this.lastWaterFlip);
+  }
+
+  /** 0 = free-flowing, 1 = busy, 2 = jammed — picks the traffic art. */
+  private trafficLevel(i: number): number {
+    const td = this.city.trafficDensity[i];
+    return td > 100 ? 2 : td > 30 ? 1 : 0;
   }
 
   update(nowMs: number): void {
@@ -107,23 +115,34 @@ export class MapRenderer {
 
     for (let i = 0; i < MAP_SIZE; i++) {
       const powered = flags[i] & Flag.Powered;
+      const traffic = this.trafficLevel(i);
       if (tiles[i] !== this.shadowTiles[i]) {
         this.shadowTiles[i] = tiles[i];
         this.shadowStage[i] = stage[i];
         this.shadowPower[i] = powered;
+        this.shadowTraffic[i] = traffic;
         dirty[i] = 1;
         // Neighbors too: their connection masks may have changed.
         if (i >= MAP_W) dirty[i - MAP_W] = 1;
         if (i < MAP_SIZE - MAP_W) dirty[i + MAP_W] = 1;
         if (i % MAP_W !== 0) dirty[i - 1] = 1;
         if (i % MAP_W !== MAP_W - 1) dirty[i + 1] = 1;
-      } else if (stage[i] !== this.shadowStage[i] || powered !== this.shadowPower[i]) {
+      } else if (
+        stage[i] !== this.shadowStage[i] ||
+        powered !== this.shadowPower[i] ||
+        traffic !== this.shadowTraffic[i]
+      ) {
         this.shadowStage[i] = stage[i];
         this.shadowPower[i] = powered;
+        this.shadowTraffic[i] = traffic;
         dirty[i] = 1;
       } else if (
         flipWater &&
-        (tiles[i] === Tile.Water || tiles[i] === Tile.Fire || tiles[i] === Tile.Flood)
+        (tiles[i] === Tile.Water ||
+          tiles[i] === Tile.Fire ||
+          tiles[i] === Tile.Flood ||
+          traffic > 0 ||
+          (tiles[i] === Tile.Coal && this.city.anchor[i] === i))
       ) {
         dirty[i] = 1;
       }
@@ -229,7 +248,7 @@ export class MapRenderer {
       case Tile.ZoneI:
         return ts.zoneI[stage];
       case Tile.Coal:
-        return ts.coal;
+        return ts.coal[this.waterFrame];
       case Tile.Nuclear:
         return ts.nuclear;
       case Tile.Police:
@@ -286,8 +305,12 @@ export class MapRenderer {
         return ts.rubble[variant % ts.rubble.length];
       case Tile.Road:
       case Tile.RoadWire:
-      case Tile.RoadRail:
-        return ts.road[this.mask(x, y, isRoadLike)];
+      case Tile.RoadRail: {
+        const mask = this.mask(x, y, isRoadLike);
+        const level = this.trafficLevel(y * MAP_W + x);
+        if (level > 0) return ts.roadTraffic[level - 1][this.waterFrame][mask];
+        return ts.road[mask];
+      }
       case Tile.Wire:
         return ts.wire[this.wireMask(x, y)];
       case Tile.WireWater: {

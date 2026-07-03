@@ -14,6 +14,8 @@ export interface Tileset {
   rubble: Texture[]; // 2 variants
   /** Indexed by 4-neighbor connection mask: 1=N, 2=E, 4=S, 8=W. */
   road: Texture[];
+  /** Busy roads: [density level 0|1][animation frame 0|1][mask]. */
+  roadTraffic: Texture[][][];
   bridgeH: Texture;
   bridgeV: Texture;
   /** Power line on land, by connection mask. */
@@ -34,7 +36,8 @@ export interface Tileset {
   zoneR: Texture[];
   zoneC: Texture[];
   zoneI: Texture[];
-  coal: Texture;
+  /** 2 frames: the smokestack puffs alternate. */
+  coal: Texture[];
   nuclear: Texture;
   police: Texture;
   fireStation: Texture;
@@ -158,6 +161,29 @@ function drawRoad(ctx: Ctx, mask: number): void {
   const horizontal = mask === (E | W) || mask === E || mask === W;
   if (vertical) drawLaneDashesV(ctx);
   else if (horizontal) drawLaneDashesH(ctx);
+}
+
+/**
+ * Traffic: little two-tone cars along the travel axis. Density level adds
+ * cars; the two frames shift them so traffic visibly crawls.
+ */
+function drawTraffic(ctx: Ctx, mask: number, level: number, frame: number): void {
+  const vertical = mask === (N | S) || mask === N || mask === S || mask === 0;
+  const horizontal = mask === (E | W) || mask === E || mask === W;
+  const cars = level === 0 ? 2 : 4;
+  const shift = frame === 0 ? 0 : 4;
+  for (let c = 0; c < cars; c++) {
+    ctx.fillStyle = c % 2 === 0 ? PAL.uiText : PAL.alertRedHi;
+    const p = (2 + c * Math.floor(20 / cars) + shift) % 20;
+    if (vertical) {
+      ctx.fillRect(c % 2 === 0 ? 5 : 15, p, 4, 3);
+    } else if (horizontal) {
+      ctx.fillRect(p, c % 2 === 0 ? 5 : 15, 3, 4);
+    } else {
+      // Intersections/corners: cluster near the middle.
+      ctx.fillRect(4 + ((p + c * 5) % 14), 10, 4, 3);
+    }
+  }
 }
 
 function drawBridge(ctx: Ctx, horizontal: boolean): void {
@@ -369,14 +395,14 @@ function drawBoltShape(ctx: Ctx, x: number, y: number, s: number): void {
   ctx.fill();
 }
 
-function drawCoal(ctx: Ctx): void {
+function drawCoal(ctx: Ctx, frame: number): void {
   const px = 4 * TILE_PX;
   drawPadBase(ctx, px);
   // Plant halls.
   drawBlock(ctx, 6, 34, 50, 54, PAL.asphalt, PAL.asphaltHi);
   drawBlock(ctx, 42, 50, 46, 38, PAL.asphalt, PAL.asphaltHi);
   drawWindows(ctx, 6, 34, 50, 54);
-  // Smokestacks (animated puffs arrive with the polish phase).
+  // Smokestacks with 2-frame puffs.
   for (const sx of [22, 40]) {
     ctx.fillStyle = PAL.rubbleHi;
     ctx.beginPath();
@@ -385,6 +411,12 @@ function drawCoal(ctx: Ctx): void {
     ctx.fillStyle = PAL.asphalt;
     ctx.beginPath();
     ctx.arc(sx, 22, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PAL.pad;
+    const puffY = frame === 0 ? 12 : 8;
+    const puffR = frame === 0 ? 3 : 4;
+    ctx.beginPath();
+    ctx.arc(sx + (frame === 0 ? 2 : 5), puffY, puffR, 0, Math.PI * 2);
     ctx.fill();
   }
   drawBoltShape(ctx, 66, 8, 1);
@@ -575,6 +607,16 @@ export function createTileset(): Tileset {
     tree: [0, 1, 2, 3].map((v) => makeTile((c) => drawTree(c, v))),
     rubble: [0, 1].map((v) => makeTile((c) => drawRubble(c, v))),
     road: Array.from({ length: 16 }, (_, mask) => makeTile((c) => drawRoad(c, mask))),
+    roadTraffic: [0, 1].map((level) =>
+      [0, 1].map((frame) =>
+        Array.from({ length: 16 }, (_, mask) =>
+          makeTile((c) => {
+            drawRoad(c, mask);
+            drawTraffic(c, mask, level, frame);
+          }),
+        ),
+      ),
+    ),
     bridgeH: makeTile((c) => drawBridge(c, true)),
     bridgeV: makeTile((c) => drawBridge(c, false)),
     wire: Array.from({ length: 16 }, (_, mask) => makeTile((c) => drawWire(c, mask))),
@@ -589,7 +631,7 @@ export function createTileset(): Tileset {
     zoneR: zoneTextures({ base: PAL.rZone, hi: PAL.rZoneHi, glyph: 'R' }),
     zoneC: zoneTextures({ base: PAL.cZone, hi: PAL.cZoneHi, glyph: 'C' }),
     zoneI: zoneTextures({ base: PAL.iZone, hi: PAL.iZoneHi, glyph: 'I' }),
-    coal: makeBig(4, drawCoal),
+    coal: [0, 1].map((f) => makeBig(4, (c) => drawCoal(c, f))),
     nuclear: makeBig(4, drawNuclear),
     police: makeBig(3, (c) => drawStation(c, PAL.cZone, PAL.cZoneHi, 'P')),
     fireStation: makeBig(3, (c) => drawStation(c, PAL.alertRed, PAL.alertRedHi, 'F')),

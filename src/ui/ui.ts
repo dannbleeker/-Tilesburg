@@ -68,6 +68,25 @@ const SPEED_BUTTONS: SpeedButton[] = [
 export interface UICallbacks {
   onNewMap: (choice: number | 'random' | { scenarioId: string }) => void;
   onOverlay: (id: OverlayId) => void;
+  /** Serialize the current city for saving. */
+  serialize: () => string;
+  /** Load a serialized city; returns an error message or null on success. */
+  onLoadCity: (json: string) => string | null;
+  onToggleSfx: () => boolean;
+  onToggleMusic: () => boolean;
+  /** Sim events worth a sound. */
+  onAlarm: () => void;
+  onChime: () => void;
+}
+
+const SLOT_KEYS = ['tilesburg:autosave', 'tilesburg:slot1', 'tilesburg:slot2', 'tilesburg:slot3'];
+const SLOT_NAMES = ['Autosave', 'Slot 1', 'Slot 2', 'Slot 3'];
+
+export const AUTOSAVE_KEY = SLOT_KEYS[0];
+
+interface StoredSave {
+  savedAt: string;
+  data: string;
 }
 
 /**
@@ -175,6 +194,11 @@ export class UI {
     evalBtn.addEventListener('click', () => this.openEvaluation());
     bar.appendChild(evalBtn);
 
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save/Load';
+    saveBtn.addEventListener('click', () => this.openSaveLoad());
+    bar.appendChild(saveBtn);
+
     const ordBtn = document.createElement('button');
     ordBtn.textContent = 'Ordinances';
     ordBtn.addEventListener('click', () => this.openOrdinances());
@@ -216,6 +240,21 @@ export class UI {
     this.dateEl = document.createElement('span');
     this.dateEl.className = 'date';
     bar.appendChild(this.dateEl);
+
+    const sfxBtn = document.createElement('button');
+    const musicBtn = document.createElement('button');
+    sfxBtn.title = 'Toggle sound effects';
+    musicBtn.title = 'Toggle music';
+    const paint = (btn: HTMLButtonElement, glyph: string, muted: boolean) => {
+      btn.textContent = glyph;
+      btn.classList.toggle('muted', muted);
+    };
+    // Initial state is painted on first toggle; assume unmuted glyphs.
+    paint(sfxBtn, '🔊', false);
+    paint(musicBtn, '♫', false);
+    sfxBtn.addEventListener('click', () => paint(sfxBtn, '🔊', this.callbacks.onToggleSfx()));
+    musicBtn.addEventListener('click', () => paint(musicBtn, '♫', this.callbacks.onToggleMusic()));
+    bar.append(sfxBtn, musicBtn);
 
     const speeds = document.createElement('span');
     speeds.className = 'speeds';
@@ -308,6 +347,7 @@ export class UI {
     const city = this.city;
     if (!city) return;
     const summary: BudgetSummary = pending && city.pendingBudget ? city.pendingBudget : assessBudget(city);
+    if (pending) this.callbacks.onChime();
 
     const panel = document.createElement('div');
     panel.className = 'modal-panel';
@@ -405,6 +445,100 @@ export class UI {
     panel.appendChild(cont);
 
     this.openModal(panel);
+  }
+
+  /** Save/Load: autosave + 3 manual slots + JSON export/import. */
+  openSaveLoad(): void {
+    const panel = document.createElement('div');
+    panel.className = 'modal-panel';
+    panel.innerHTML = '<div class="modal-title">Save / Load</div>';
+
+    SLOT_KEYS.forEach((key, i) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'modal-row';
+      const name = document.createElement('span');
+      let stored: StoredSave | null = null;
+      try {
+        stored = JSON.parse(localStorage.getItem(key) ?? 'null') as StoredSave | null;
+      } catch {
+        stored = null;
+      }
+      name.textContent = `${SLOT_NAMES[i]}${stored ? ` — ${new Date(stored.savedAt).toLocaleString()}` : ' — empty'}`;
+      rowEl.appendChild(name);
+      if (i > 0) {
+        const save = document.createElement('button');
+        save.textContent = 'Save';
+        save.addEventListener('click', () => {
+          this.writeSlot(key);
+          this.closeModal();
+          this.setMessage(`Saved to ${SLOT_NAMES[i]}`);
+        });
+        rowEl.appendChild(save);
+      }
+      const load = document.createElement('button');
+      load.textContent = 'Load';
+      load.disabled = !stored;
+      load.addEventListener('click', () => {
+        if (!stored) return;
+        const err = this.callbacks.onLoadCity(stored.data);
+        this.closeModal();
+        this.setMessage(err ?? `Loaded ${SLOT_NAMES[i]}`);
+      });
+      rowEl.appendChild(load);
+      panel.appendChild(rowEl);
+    });
+
+    const fileRow = document.createElement('div');
+    fileRow.className = 'modal-row';
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export JSON';
+    exportBtn.addEventListener('click', () => {
+      const blob = new Blob([this.callbacks.serialize()], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'tilesburg-city.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    const importInput = document.createElement('input');
+    importInput.type = 'file';
+    importInput.accept = 'application/json,.json';
+    importInput.style.display = 'none';
+    importInput.addEventListener('change', () => {
+      const f = importInput.files?.[0];
+      if (!f) return;
+      void f.text().then((text) => {
+        const err = this.callbacks.onLoadCity(text);
+        this.closeModal();
+        this.setMessage(err ?? 'City imported');
+      });
+    });
+    const importBtn = document.createElement('button');
+    importBtn.textContent = 'Import JSON';
+    importBtn.addEventListener('click', () => importInput.click());
+    fileRow.append(exportBtn, importBtn, importInput);
+    panel.appendChild(fileRow);
+
+    const close = document.createElement('button');
+    close.className = 'modal-continue';
+    close.textContent = 'Close';
+    close.addEventListener('click', () => this.closeModal());
+    panel.appendChild(close);
+    this.openModal(panel);
+  }
+
+  private writeSlot(key: string): void {
+    const stored: StoredSave = { savedAt: new Date().toISOString(), data: this.callbacks.serialize() };
+    try {
+      localStorage.setItem(key, JSON.stringify(stored));
+    } catch {
+      this.setMessage('Save failed — storage is full');
+    }
+  }
+
+  /** Yearly autosave, called by the game loop. */
+  autosave(): void {
+    this.writeSlot(AUTOSAVE_KEY);
   }
 
   /** City ordinances: 10 toggles with their estimated annual § effect. */
@@ -695,9 +829,11 @@ export class UI {
     const d = getDate(city);
     this.dateEl.textContent = `${MONTHS[d.month]} ${d.year}`;
     this.updateRci(city);
-    // Drain sim events into the message ticker.
+    // Drain sim events into the message ticker; urgent ones sound the alarm.
     while (city.messages.length > 0) {
-      this.setMessage(city.messages.shift() as string);
+      const msg = city.messages.shift() as string;
+      this.setMessage(msg);
+      if (msg.includes('!')) this.callbacks.onAlarm();
     }
     // The sim posted a January budget for review.
     if (city.pendingBudget && !this.modalOpen) this.openBudget(true);

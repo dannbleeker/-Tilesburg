@@ -103,6 +103,25 @@ describe('scenarios', () => {
     }
   });
 
+  it('stamped towns are actually powered (regression: grids must conduct)', () => {
+    for (const def of SCENARIOS) {
+      const c = createScenarioCity(def);
+      tick(c); // runs scanPower
+      let poweredZones = 0;
+      let zones = 0;
+      for (let i = 0; i < MAP_SIZE; i++) {
+        if (c.anchor[i] !== i) continue;
+        const t = c.tiles[i];
+        if (t === Tile.ZoneR || t === Tile.ZoneC || t === Tile.ZoneI) {
+          zones++;
+          if (c.flags[i] & 1) poweredZones++;
+        }
+      }
+      // The start disaster may knock some out, but the grid must carry power.
+      expect(poweredZones / zones, def.id).toBeGreaterThan(0.5);
+    }
+  });
+
   it('tokyo starts with a monster, boston with radioactive fallout', () => {
     const tokyo = createScenarioCity(SCENARIOS.find((s) => s.id === 'tokyo1957')!);
     expect(tokyo.monster).not.toBeNull();

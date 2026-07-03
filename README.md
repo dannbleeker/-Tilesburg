@@ -46,7 +46,7 @@ starting city, a goal, and a time limit; win or lose, the city keeps running.
 
 ## Status
 
-Phase 6 of 7 (content) — see `DESIGN.md` for the data model and tick
+All 7 phases delivered — see `DESIGN.md` for the data model and tick
 pipeline, and `ART_DIRECTION.md` for the visual rules. Working now: seeded
 deterministic terrain (5 curated maps + random), roads/bridges, rail with
 level crossings and water trestles, power lines with crossings and underwater
@@ -60,10 +60,12 @@ transit is underfunded), a city evaluation window, and all seven disasters —
 fire (suppressed by fire coverage), flood, tornado, earthquake, monster
 (hunts pollution), plane crash, and nuclear meltdown with radioactive
 fallout — random (toggleable) or triggered from the Disasters menu, with a
-message ticker. Plus the phase-6 content: stadium/seaport/airport demand
-cap-lifters with yearly nags, the 10-ordinance City Ordinances window wired
-into budget/crime/pollution/demand/approval, and all eight scenarios with
-briefing and verdict windows. 112-test Vitest suite.
-
-Coming next per the delivery plan: the final polish pass (audio, minimap,
-save/load, animations, performance).
+message ticker. Phase-6 content: stadium/seaport/airport demand cap-lifters
+with yearly nags, the 10-ordinance City Ordinances window wired into
+budget/crime/pollution/demand/approval, and all eight scenarios with briefing
+and verdict windows. Phase-7 polish: yearly localStorage autosave + three
+manual slots + JSON export/import (deterministic resume, RNG state included),
+an always-visible minimap with viewport box and click-to-jump, fully
+synthesized audio (tool SFX, disaster alarms, budget chime, population-scaled
+ambient hum, two procedural music loops, independent mute toggles), animated
+traffic on busy roads, and smoking coal stacks. 118-test Vitest suite.

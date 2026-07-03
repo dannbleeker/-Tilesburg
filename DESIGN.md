@@ -116,11 +116,23 @@ between successive cells so fast mouse moves leave no gaps — matching the orig
 "paint as you drag" behavior — while the UI shows a running §-cost readout at the
 cursor. All mutation goes through the tools module; the renderer never writes tiles.
 
-## Persistence (design, lands in phase 7)
+## Persistence (phase 7)
 
-The save is `{ version, seed, rngState, cityTime, funds, tiles, flags, …overlays }` with
-typed arrays base64-encoded — JSON export/import and localStorage autosave share the
-same codec. Because the RNG state is saved, a loaded city continues deterministically.
+`src/sim/save.ts` is a pure city ↔ JSON codec: all authored state (tiles, flags,
+anchors, stages, traffic, scalars, ordinances, scenario progress, disaster actors,
+RNG state) with typed arrays base64-encoded. Derived overlay maps are recomputed on
+load. localStorage autosave (every sim year), three manual slots, and JSON file
+export/import all share the codec. Because the RNG state is saved, a loaded city
+continues deterministically — verified by a tick-for-tick equality test.
+
+## Audio (phase 7)
+
+Everything is synthesized with the Web Audio API — no audio assets. SFX (place,
+bulldoze, error, disaster alarm, budget chime) are short envelope blips or filtered
+noise; the ambient city hum is a low sawtooth chord whose gain tracks population;
+music is two alternating 16-step A-pentatonic patterns on soft triangle voices with
+an occasional low fifth. SFX and music mute independently and persist. The context
+unlocks on the first user gesture per browser autoplay policy.
 
 ## Art direction
 
@@ -248,6 +260,11 @@ tax + funding sliders, infrastructure decay, auto-budget, evaluation window.
 Phase 5: all seven disasters with random rolls, the Disasters menu, and the
 message ticker queue. Phase 6: stadium/seaport/airport cap-lifters, the
 10-ordinance layer, and the eight classic scenarios with briefing/verdict flow.
+Phase 7: save/load (autosave + slots + JSON export/import), minimap with
+click-to-jump, synthesized audio (SFX / ambient hum / procedural music), and
+traffic + smokestack animation.
 
-Stubbed: minimap, save/load, audio, plant capacity limits, traffic animation,
-final art pass.
+All seven phases delivered. Known deliberate simplifications: no power plant
+output capacity (grids never brown out), free-form bridges (the original
+required straight spans), stadium crowds are not animated, and rail/wire
+three-way stacks are out of scope.

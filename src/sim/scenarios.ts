@@ -51,14 +51,17 @@ function stampBuilding(city: City, type: BuildingType, ax: number, ay: number, s
   city.stage[anchorIdx] = stage;
 }
 
+// Scenario towns use road/wire crossings for their street grid — the classic
+// wires-over-streets look — so the whole grid conducts and every zone that
+// borders a street is powered.
 function stampRoadRow(city: City, x0: number, x1: number, y: number): void {
   clear(city, x0, y, x1 - x0 + 1, 1);
-  for (let x = x0; x <= x1; x++) city.tiles[idx(x, y)] = Tile.Road;
+  for (let x = x0; x <= x1; x++) city.tiles[idx(x, y)] = Tile.RoadWire;
 }
 
 function stampRoadCol(city: City, x: number, y0: number, y1: number): void {
   clear(city, x, y0, 1, y1 - y0 + 1);
-  for (let y = y0; y <= y1; y++) city.tiles[idx(x, y)] = Tile.Road;
+  for (let y = y0; y <= y1; y++) city.tiles[idx(x, y)] = Tile.RoadWire;
 }
 
 /**
@@ -82,11 +85,11 @@ function stampTown(city: City, ox: number, oy: number, blocksX: number, blocksY:
       stampBuilding(city, type, ox + bx * 4 + 1, oy + by * 4 + 1, stage);
     }
   }
-  // Power: coal plant west of the town, wires along the top road's south side.
+  // Power: coal plant west of the town, a wire stub into the conducting grid.
   stampBuilding(city, Tile.Coal, ox - 6, oy + 1);
-  clear(city, ox - 2, oy + 1, 3, 1);
-  for (let x = ox - 2; x <= ox; x++) city.tiles[idx(x, oy + 1)] = Tile.Wire;
-  // The first zone column touches the wire stub; zones conduct onward.
+  clear(city, ox - 2, oy + 1, 2, 1);
+  for (let x = ox - 2; x <= ox - 1; x++) city.tiles[idx(x, oy + 1)] = Tile.Wire;
+  city.tiles[idx(ox, oy + 1)] = Tile.RoadWire; // joins the west street
   stampBuilding(city, Tile.Police, ox + 1, oy - 4);
   stampBuilding(city, Tile.FireStation, ox + 5, oy - 4);
 }
