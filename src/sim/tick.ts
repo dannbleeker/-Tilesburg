@@ -1,6 +1,8 @@
+import { applyBudget, assessBudget, decayInfrastructure } from './budget';
 import type { City } from './city';
-import { TICKS_PER_MONTH } from './constants';
+import { TICKS_PER_MONTH, TICKS_PER_YEAR } from './constants';
 import { evaluateDemand, takeCensus } from './demand';
+import { cityPopulation } from './evaluation';
 import {
   computeCrime,
   computeFireCoverage,
@@ -28,7 +30,7 @@ export function tick(city: City): void {
     takeCensus(city);
     evaluateDemand(city);
   }
-  collectBudget(city); // [phase 4] January tax/funding cycle
+  collectBudget(city);
 }
 
 function advanceClock(city: City): void {
@@ -50,8 +52,8 @@ function diffuseMaps(city: City): void {
       computePollution(city);
       break;
     case 8:
-      computePoliceCoverage(city);
-      computeFireCoverage(city);
+      computePoliceCoverage(city, city.funding.police);
+      computeFireCoverage(city, city.funding.fire);
       break;
     case 11:
       computeLandValue(city);
@@ -63,7 +65,24 @@ function diffuseMaps(city: City): void {
 }
 
 function advanceDisasters(_city: City): void {}
-function collectBudget(_city: City): void {}
+
+/**
+ * The January cycle: infrastructure decays by the transit funding gap, the
+ * year's books are assessed, and either settled silently (auto-budget) or
+ * handed to the UI as a pending budget to review. Also snapshots population
+ * for the evaluation window's net-migration figure.
+ */
+function collectBudget(city: City): void {
+  if (city.cityTime === 0 || city.cityTime % TICKS_PER_YEAR !== 0) return;
+  decayInfrastructure(city);
+  const summary = assessBudget(city);
+  if (city.autoBudget) {
+    applyBudget(city, summary);
+  } else {
+    city.pendingBudget = summary;
+  }
+  city.lastYearPop = cityPopulation(city);
+}
 
 /**
  * Prime a fresh city's demand valves and overlay maps so the UI is

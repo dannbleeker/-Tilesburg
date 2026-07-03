@@ -26,6 +26,23 @@ export interface Census {
   indPop: number;
 }
 
+/** Department funding levels, 0..1 (the budget window's sliders). */
+export interface Funding {
+  police: number;
+  fire: number;
+  transit: number;
+}
+
+/** One January's assessment, shown in the budget window before applying. */
+export interface BudgetSummary {
+  year: number;
+  taxIncome: number;
+  /** Full-funding annual maintenance costs. */
+  policeMaint: number;
+  fireMaint: number;
+  transitMaint: number;
+}
+
 // The whole city is plain data + typed arrays: fully serializable, no DOM,
 // no renderer references. See DESIGN.md "Map & tile data model".
 export interface City {
@@ -55,6 +72,14 @@ export interface City {
   rng: Rng;
   demand: Demand;
   census: Census;
+  /** Property tax rate, 0..20 percent. */
+  taxRate: number;
+  funding: Funding;
+  autoBudget: boolean;
+  /** Set each January when auto-budget is off; the UI opens the window. */
+  pendingBudget: BudgetSummary | null;
+  /** Population at the last January, for net migration. */
+  lastYearPop: number;
 }
 
 export function createCity(seed: number, params: TerrainParams): City {
@@ -81,6 +106,11 @@ export function createCity(seed: number, params: TerrainParams): City {
     rng,
     demand: { r: 0, c: 0, i: 0 },
     census: { resPop: 0, comPop: 0, indPop: 0 },
+    taxRate: 7,
+    funding: { police: 1, fire: 1, transit: 1 },
+    autoBudget: false,
+    pendingBudget: null,
+    lastYearPop: 0,
   };
 }
 

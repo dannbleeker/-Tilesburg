@@ -30,23 +30,26 @@ npm run build      # typecheck + production build
 | `P` / `N` | Coal plant / Nuclear plant |
 | `Q` | Query tool |
 | `M` | Cycle overlay maps |
+| `G` / `E` | Budget window / City evaluation |
 | `Esc` | Pan mode |
 | `Space` | Pause toggle |
 | `0` `1` `2` `3` | Paused / slow / normal / fast |
 
 ## Status
 
-Phase 3 of 7 (sim depth) — see `DESIGN.md` for the data model and tick
+Phase 4 of 7 (money) — see `DESIGN.md` for the data model and tick
 pipeline, and `ART_DIRECTION.md` for the visual rules. Working now: seeded
 deterministic terrain (5 curated maps + random), roads/bridges, rail with
 level crossings and water trestles, power lines with crossings and underwater
 cables, R/C/I zones growing through five density stages gated on power *and*
 road/rail access to counterpart zones, coal/nuclear plants, police and fire
 stations, trip-based traffic that pollutes roads and fades over time,
-pollution/land value/crime/population/coverage maps with the original's
-diffusion feel, 9 overlay map views, a query tool, the RCI demand indicator,
-drag placement with live cost readout, and a 76-test Vitest suite.
+pollution/land value/crime/population/coverage maps, 9 overlay views, a query
+tool, the RCI demand indicator, an annual budget cycle (0–20% property tax,
+police/fire/transit funding sliders, auto-budget, infrastructure decay when
+transit is underfunded), a city evaluation window (approval, city class, net
+migration, assessed value, top complaints), and an 88-test Vitest suite.
 
-Coming next per the delivery plan: budget cycle + funding sliders +
-evaluation window, disasters, scenarios + ordinances, and the final polish
-pass (audio, minimap, save/load, traffic animation).
+Coming next per the delivery plan: the seven disasters, scenarios +
+ordinances + stadium/seaport/airport, and the final polish pass (audio,
+minimap, save/load, traffic animation).

@@ -1,6 +1,8 @@
 import { OVERLAYS, type OverlayId } from '../render/overlay';
-import { getDate, type City } from '../sim/city';
+import { applyBudget, assessBudget, cashFlow, fundedCost } from '../sim/budget';
+import { getDate, type BudgetSummary, type City } from '../sim/city';
 import { DEMAND_MAX, SPEEDS, type SpeedId } from '../sim/constants';
+import { evaluate } from '../sim/evaluation';
 import type { TileInfo } from '../sim/query';
 import { STARTER_MAPS } from '../sim/terrain';
 import { TOOL_INFO, type ToolId } from '../sim/tools';
@@ -68,6 +70,10 @@ export class UI {
   private rciFills: Record<'r' | 'c' | 'i', HTMLElement> = {} as Record<'r' | 'c' | 'i', HTMLElement>;
   private overlayPicker!: HTMLSelectElement;
   private queryEl!: HTMLElement;
+  private modalEl!: HTMLElement;
+  private modalOpen = false;
+  private prevModalSpeed: SpeedId = 'normal';
+  private city: City | null = null;
   private toolButtons = new Map<ToolSelection, HTMLButtonElement>();
   private speedButtons = new Map<SpeedId, HTMLButtonElement>();
   private messageTimer = 0;
@@ -125,6 +131,18 @@ export class UI {
     overlayPicker.addEventListener('change', () => this.callbacks.onOverlay(overlayPicker.value as OverlayId));
     this.overlayPicker = overlayPicker;
     bar.appendChild(overlayPicker);
+
+    const budgetBtn = document.createElement('button');
+    budgetBtn.textContent = 'Budget';
+    budgetBtn.title = 'Budget window (G)';
+    budgetBtn.addEventListener('click', () => this.openBudget(false));
+    bar.appendChild(budgetBtn);
+
+    const evalBtn = document.createElement('button');
+    evalBtn.textContent = 'Stats';
+    evalBtn.title = 'City evaluation (E)';
+    evalBtn.addEventListener('click', () => this.openEvaluation());
+    bar.appendChild(evalBtn);
 
     const spacer = document.createElement('span');
     spacer.className = 'spacer';
@@ -210,6 +228,167 @@ export class UI {
     this.queryEl.className = 'query-popup';
     this.queryEl.style.display = 'none';
     root.appendChild(this.queryEl);
+
+    this.modalEl = document.createElement('div');
+    this.modalEl.className = 'modal-backdrop';
+    this.modalEl.style.display = 'none';
+    root.appendChild(this.modalEl);
+  }
+
+  // --- modal windows ------------------------------------------------------
+
+  private openModal(panel: HTMLElement): void {
+    this.modalEl.innerHTML = '';
+    this.modalEl.appendChild(panel);
+    this.modalEl.style.display = 'flex';
+    if (!this.modalOpen) {
+      this.modalOpen = true;
+      this.prevModalSpeed = this.speed === 'paused' ? this.prevSpeedPublic() : this.speed;
+      this.selectSpeed('paused');
+    }
+  }
+
+  private prevSpeedPublic(): SpeedId {
+    return this.prevSpeed;
+  }
+
+  private closeModal(): void {
+    this.modalEl.style.display = 'none';
+    this.modalOpen = false;
+    this.selectSpeed(this.prevModalSpeed);
+  }
+
+  /**
+   * The budget window. `pending` is true for the automatic January opening,
+   * where Continue settles the year; opened manually it is a live preview
+   * of the current assessment and Continue just closes.
+   */
+  openBudget(pending: boolean): void {
+    const city = this.city;
+    if (!city) return;
+    const summary: BudgetSummary = pending && city.pendingBudget ? city.pendingBudget : assessBudget(city);
+
+    const panel = document.createElement('div');
+    panel.className = 'modal-panel';
+    const title = document.createElement('div');
+    title.className = 'modal-title';
+    title.textContent = pending ? `Budget — January ${summary.year}` : 'Budget (preview)';
+    panel.appendChild(title);
+
+    const flowEl = document.createElement('div');
+
+    const addSlider = (
+      label: string,
+      value: number,
+      max: number,
+      format: (v: number) => string,
+      onInput: (v: number) => void,
+    ) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'modal-row';
+      const name = document.createElement('span');
+      name.textContent = label;
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '0';
+      slider.max = String(max);
+      slider.value = String(value);
+      const val = document.createElement('span');
+      val.className = 'modal-value';
+      val.textContent = format(value);
+      slider.addEventListener('input', () => {
+        const v = Number(slider.value);
+        onInput(v);
+        val.textContent = format(v);
+        renderFlow();
+      });
+      rowEl.append(name, slider, val);
+      panel.appendChild(rowEl);
+    };
+
+    addSlider('Tax rate', city.taxRate, 20, (v) => `${v}%`, (v) => (city.taxRate = v));
+    addSlider(
+      `Police (§${Math.round(summary.policeMaint)})`,
+      Math.round(city.funding.police * 100),
+      100,
+      (v) => `§${fundedCost(summary.policeMaint, v / 100)}`,
+      (v) => (city.funding.police = v / 100),
+    );
+    addSlider(
+      `Fire (§${Math.round(summary.fireMaint)})`,
+      Math.round(city.funding.fire * 100),
+      100,
+      (v) => `§${fundedCost(summary.fireMaint, v / 100)}`,
+      (v) => (city.funding.fire = v / 100),
+    );
+    addSlider(
+      `Transit (§${Math.round(summary.transitMaint)})`,
+      Math.round(city.funding.transit * 100),
+      100,
+      (v) => `§${fundedCost(summary.transitMaint, v / 100)}`,
+      (v) => (city.funding.transit = v / 100),
+    );
+
+    const renderFlow = () => {
+      const net = cashFlow(city, summary);
+      const sign = net >= 0 ? '+' : '−';
+      flowEl.innerHTML = [
+        row('Tax income', `§${summary.taxIncome.toLocaleString('en-US')}`),
+        row('Cash flow', `${sign}§${Math.abs(net).toLocaleString('en-US')}`),
+        row('Funds after', `§${(city.funds + (pending ? net : 0)).toLocaleString('en-US')}`),
+      ].join('');
+    };
+    renderFlow();
+    panel.appendChild(flowEl);
+
+    const autoRow = document.createElement('label');
+    autoRow.className = 'modal-row';
+    const auto = document.createElement('input');
+    auto.type = 'checkbox';
+    auto.checked = city.autoBudget;
+    auto.addEventListener('change', () => (city.autoBudget = auto.checked));
+    const autoLabel = document.createElement('span');
+    autoLabel.textContent = 'Auto-budget (settle each January without asking)';
+    autoRow.append(auto, autoLabel);
+    panel.appendChild(autoRow);
+
+    const cont = document.createElement('button');
+    cont.className = 'modal-continue';
+    cont.textContent = pending ? 'Settle budget' : 'Close';
+    cont.addEventListener('click', () => {
+      if (pending && city.pendingBudget) applyBudget(city, city.pendingBudget);
+      this.closeModal();
+    });
+    panel.appendChild(cont);
+
+    this.openModal(panel);
+  }
+
+  openEvaluation(): void {
+    const city = this.city;
+    if (!city) return;
+    const ev = evaluate(city);
+    const panel = document.createElement('div');
+    panel.className = 'modal-panel';
+    const migration = ev.netMigration >= 0 ? `+${ev.netMigration}` : String(ev.netMigration);
+    panel.innerHTML = [
+      '<div class="modal-title">City evaluation</div>',
+      row('Population', ev.population.toLocaleString('en-US')),
+      row('City class', ev.cityClass),
+      row('Net migration', migration),
+      row('Assessed value', `§${ev.assessedValue.toLocaleString('en-US')}`),
+      row('Mayor approval', `${ev.approval}%`),
+      '<div class="modal-subtitle">Top complaints</div>',
+      ev.complaints.length
+        ? ev.complaints.map((c) => row(c.name, `${c.score}`)).join('')
+        : '<div class="query-row"><span>No significant complaints</span></div>',
+    ].join('');
+    const close = document.createElement('button');
+    close.className = 'modal-continue';
+    close.textContent = 'Close';
+    close.addEventListener('click', () => this.closeModal());
+    panel.appendChild(close);
+    this.openModal(panel);
   }
 
   /** Query tool result popup, anchored near the clicked tile. */
@@ -272,6 +451,12 @@ export class UI {
         case 'm':
           this.cycleOverlay();
           break;
+        case 'g':
+          if (!this.modalOpen) this.openBudget(false);
+          break;
+        case 'e':
+          if (!this.modalOpen) this.openEvaluation();
+          break;
         case ' ':
           e.preventDefault();
           this.togglePause();
@@ -333,10 +518,13 @@ export class UI {
   }
 
   update(city: City): void {
+    this.city = city;
     this.fundsEl.textContent = `§${city.funds.toLocaleString('en-US')}`;
     const d = getDate(city);
     this.dateEl.textContent = `${MONTHS[d.month]} ${d.year}`;
     this.updateRci(city);
+    // The sim posted a January budget for review.
+    if (city.pendingBudget && !this.modalOpen) this.openBudget(true);
   }
 
   // Each bar fills up or down from the track's midline with the sign of the

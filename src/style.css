@@ -248,6 +248,68 @@ button.active {
   opacity: 0.75;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 18, 22, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.modal-panel {
+  width: 340px;
+  background: var(--ui-panel);
+  border-bottom: 2px solid var(--ui-accent);
+  padding: 16px 18px;
+  opacity: 0.98; /* see .query-popup */
+}
+
+.modal-title {
+  font-weight: 700;
+  color: var(--ui-accent);
+  margin-bottom: 12px;
+}
+
+.modal-subtitle {
+  font-weight: 600;
+  margin: 10px 0 4px;
+  opacity: 0.85;
+}
+
+.modal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.modal-row > span:first-child {
+  flex: 0 0 110px;
+}
+
+.modal-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--ui-accent);
+}
+
+.modal-value {
+  flex: 0 0 60px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-accent);
+}
+
+.modal-continue {
+  margin-top: 12px;
+  width: 100%;
+  background: var(--ui-bg);
+  border-bottom: 2px solid var(--ui-accent);
+  font-weight: 600;
+}
+
 .drag-cost {
   position: fixed;
   background: var(--ui-panel);

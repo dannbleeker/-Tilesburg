@@ -174,6 +174,23 @@ Rendering note: fully-opaque fixed DOM over the WebGL canvas triggers white rast
 damage in software-rendered Chromium; floating UI uses `opacity: 0.98` to sidestep
 it (see `style.css`).
 
+## Budget & evaluation (phase 4)
+
+Each January the pipeline: decays under-funded infrastructure (every road/rail
+tile risks crumbling with probability 0.12 × the transit funding gap; spans over
+water wash away), assesses the year (tax income = zone population × rate × yield;
+maintenance §100/station, §1/road tile, §2/rail tile), then settles silently under
+auto-budget or posts a `pendingBudget` the UI turns into the pausing budget
+window. Funding sliders (0–100%) live on the city and scale police/fire coverage
+reach and transit decay. Tax rate drags all three demand valves (±60/point around
+the 7% default). Funds may go negative (debt) — the tools already refuse to build
+while broke.
+
+The evaluation window computes on demand: population (zone pop × 20), city class
+(Village → Megalopolis), net migration vs. last January, assessed value, mayor
+approval (crime/pollution/traffic averages, tax excess, unemployment, blackout
+fraction), and the top-4 complaints above a nuisance threshold.
+
 ## Phase status
 
 Phase 1: scaffold, RNG, city state, terrain + 5 curated maps, tick clock, tile
@@ -181,7 +198,8 @@ renderer + camera, bulldozer/road tools, chrome, tests. Phase 2: power grid +
 wire tools, R/C/I zones with growth stages, coal/nuclear plants, RCI demand model +
 indicator, unpowered bolts. Phase 3: rail + level crossings, police/fire stations,
 trip generation with access gating, traffic/pollution/land value/crime/coverage/
-population maps, 9 overlay views, query tool.
+population maps, 9 overlay views, query tool. Phase 4: annual budget cycle with
+tax + funding sliders, infrastructure decay, auto-budget, evaluation window.
 
-Stubbed: budget/funding/evaluation, disasters, scenarios, ordinances, minimap,
-save/load, audio, plant capacity limits, traffic animation.
+Stubbed: disasters, scenarios, ordinances, minimap, save/load, audio, plant
+capacity limits, traffic animation.

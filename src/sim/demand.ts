@@ -42,9 +42,12 @@ export function evaluateDemand(city: City): void {
   const { resPop, comPop, indPop } = city.census;
   const labor = resPop;
   const jobs = comPop + indPop;
+  // Every point above the default 7% tax scares the market off; cheap taxes
+  // give a small edge.
+  const taxDrag = (city.taxRate - 7) * 60;
   city.demand = {
-    r: clampValve((jobs * 1.4 + EXTERNAL_MARKET - labor) * 2),
-    c: clampValve((labor * 0.5 - comPop) * 3 + 100),
-    i: clampValve((labor * 0.7 - indPop) * 3 + 300),
+    r: clampValve((jobs * 1.4 + EXTERNAL_MARKET - labor) * 2 - taxDrag),
+    c: clampValve((labor * 0.5 - comPop) * 3 + 100 - taxDrag),
+    i: clampValve((labor * 0.7 - indPop) * 3 + 300 - taxDrag),
   };
 }
