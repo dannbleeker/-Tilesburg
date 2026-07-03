@@ -52,9 +52,14 @@ A single fixed palette; new art picks from it, never invents colors ad hoc.
 | `uiPanel` | `#2a2f38` | panels, buttons |
 | `uiText` | `#e8e6df` | primary text |
 | `uiAccent` | `#e3b93d` | funds, active tool, warnings |
+| `pad` | `#9aa0a8` | concrete pad under developed buildings |
+| `padShade` | `#8a909a` | pad south/east edge |
 | `rZone` | `#3f8f4f` | residential identity color |
+| `rZoneHi` | `#54a862` | residential NW-light tone |
 | `cZone` | `#3f6fb5` | commercial identity color |
+| `cZoneHi` | `#5c8bc9` | commercial NW-light tone |
 | `iZone` | `#c2a23c` | industrial identity color |
+| `iZoneHi` | `#d4b954` | industrial NW-light tone |
 
 ## UI chrome
 
@@ -79,5 +84,25 @@ Font: system UI stack; tabular numerals for funds and date.
   guard rails.
 - **Rubble** — dirt base scattered with 3–5 `rubble`/`rubbleHi` chips.
 
-Later phases extend this file with zone growth stages, buildings, disaster effects, and
-sprite specs before any of that art is drawn.
+## Per-tile specs (phase 2)
+
+- **Power line** — dirt base; 2 px `wireYellow` strokes running center-to-edge along
+  each connection, 4×4 `asphalt` pole where they meet. Over roads, just the strokes
+  on transparency layered above the road plate. Underwater cable: dashed
+  `wireYellow` run on water.
+- **Zone plate (stage 0)** — land plate with a 2 px identity-color border inset 2 px,
+  identity-color letter glyph (R/C/I) centered. The glyph is typography, not
+  outline art, and doubles as the colorblind-safe zone identity.
+- **Zone stages 1–4** — `pad` base; deterministic cluster of NW-lit blocks in the
+  identity color pair, count and size scaling with stage; `laneline` window dots
+  from stage 2; stage 4 is a single full-plate structure.
+- **Coal plant** — `pad` base, `asphalt`/`asphaltHi` halls, two smokestack circles
+  (`rubbleHi` ring, `asphalt` bore), `wireYellow` bolt emblem. Stack smoke animates
+  in the polish phase.
+- **Nuclear plant** — `pad` base, hall, NW-lit containment dome (`uiText` over
+  `rubble`), `wireYellow` trefoil badge.
+- **Unpowered bolt** — `wireYellow` lightning glyph on the zone's center tile,
+  blinking at the 500 ms global cadence.
+
+Later phases extend this file with police/fire/stadium/seaport/airport sprites,
+disaster effects, and traffic animation specs before any of that art is drawn.

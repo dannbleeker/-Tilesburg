@@ -24,20 +24,25 @@ npm run build      # typecheck + production build
 | Left drag (Pan mode), or middle/right drag | Pan the map |
 | Mouse wheel, `+` / `-` | Zoom (anchored at cursor) |
 | Arrow keys | Pan |
-| `R` / `B` / `Esc` | Road / Bulldozer / Pan mode |
+| `B` / `R` / `W` | Bulldozer / Road / Power line |
+| `Z` / `X` / `C` | Residential / Commercial / Industrial zone |
+| `P` / `N` | Coal plant / Nuclear plant |
+| `Esc` | Pan mode |
 | `Space` | Pause toggle |
 | `0` `1` `2` `3` | Paused / slow / normal / fast |
 
 ## Status
 
-Phase 1 of 7 (engine skeleton) — see `DESIGN.md` for the data model and tick
-pipeline, and `ART_DIRECTION.md` for the visual rules. Working now: deterministic
-seeded terrain generation with 5 curated starter maps + random maps, tile
-renderer with dirty-diffing and water animation, connection-aware road art,
-camera pan/zoom, bulldozer + road/bridge tools with drag placement and live
-cost readout, sim clock with speed controls, and a Vitest suite over the sim
-core (RNG, terrain, tools, city state).
+Phase 2 of 7 (power + zones) — see `DESIGN.md` for the data model and tick
+pipeline, and `ART_DIRECTION.md` for the visual rules. Working now: seeded
+deterministic terrain (5 curated starter maps + random), bulldozer, roads and
+bridges, power lines with road crossings and underwater cables, R/C/I zones
+(§100) that grow through five density stages, coal (§3000) and nuclear (§5000)
+plants, power grid flood-fill with blinking unpowered bolts, an RCI demand
+model driving an always-visible indicator, drag placement with live cost
+readout, camera pan/zoom, four sim speeds, and a 58-test Vitest suite over the
+sim core.
 
-Coming next per the delivery plan: power + RCI zones, traffic/pollution/crime/
-land value + overlays, budget cycle, disasters, scenarios + ordinances, and the
-final polish pass (audio, minimap, save/load).
+Coming next per the delivery plan: traffic/pollution/crime/land value +
+overlay maps + query tool, budget cycle + evaluation, disasters, scenarios +
+ordinances, and the final polish pass (audio, minimap, save/load).

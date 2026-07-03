@@ -1,5 +1,5 @@
 import { getDate, type City } from '../sim/city';
-import { SPEEDS, type SpeedId } from '../sim/constants';
+import { DEMAND_MAX, SPEEDS, type SpeedId } from '../sim/constants';
 import { STARTER_MAPS } from '../sim/terrain';
 import { TOOL_INFO, type ToolId } from '../sim/tools';
 
@@ -10,6 +10,13 @@ const TOOL_ICONS: Record<ToolId | 'pan', string> = {
   bulldozer:
     '<svg viewBox="0 0 24 24"><path d="M3 15h10v-3l3 1v4h2a2 2 0 012 2v1H3v-2a3 3 0 010-3zm2-7h6l2 5H5z"/><rect x="19" y="8" width="2" height="8"/></svg>',
   road: '<svg viewBox="0 0 24 24"><path d="M7 3h10v18H7z"/><rect x="11" y="5" width="2" height="3" fill="#20242b"/><rect x="11" y="11" width="2" height="3" fill="#20242b"/><rect x="11" y="17" width="2" height="3" fill="#20242b"/></svg>',
+  wire: '<svg viewBox="0 0 24 24"><path d="M11 2h2v20h-2z"/><path d="M4 7h16v2H4zM6 12h12v2H6z"/></svg>',
+  res: '<svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v10h-5v-6h-2v6H6V11H3z"/></svg>',
+  com: '<svg viewBox="0 0 24 24"><path d="M5 21V5h6v4h8v12zm3-12H6.5v2H8zm0 4H6.5v2H8zm0 4H6.5v2H8zm9-4h-1.5v2H17zm0 4h-1.5v2H17zm-4-8h-1.5v2H13zm0 4h-1.5v2H13zm0 4h-1.5v2H13z"/></svg>',
+  ind: '<svg viewBox="0 0 24 24"><path d="M3 21V10l6 4v-4l6 4V8h2V4h3v17z"/></svg>',
+  coal: '<svg viewBox="0 0 24 24"><path d="M4 21v-8h16v8zM6 4h3v7H6zm9 0h3v7h-3z"/><path d="M13 14l-2 3h2l-2 3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+  nuclear:
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M12 4a8 8 0 014.6 1.5l-3.2 5A2.5 2.5 0 0012 10zM19.6 16a8 8 0 01-4.4 4.7l-1.9-5.6a2.5 2.5 0 001.4-2.1zM4.4 16l5-1a2.5 2.5 0 001.4 2.1L8.9 20.7A8 8 0 014.4 16z" opacity=".9"/></svg>',
 };
 
 export type ToolSelection = ToolId | null; // null = pan
@@ -44,6 +51,8 @@ export class UI {
   private dateEl!: HTMLElement;
   private messageEl!: HTMLElement;
   private dragCostEl!: HTMLElement;
+  private rciEl!: HTMLElement;
+  private rciFills: Record<'r' | 'c' | 'i', HTMLElement> = {} as Record<'r' | 'c' | 'i', HTMLElement>;
   private toolButtons = new Map<ToolSelection, HTMLButtonElement>();
   private speedButtons = new Map<SpeedId, HTMLButtonElement>();
   private messageTimer = 0;
@@ -92,6 +101,26 @@ export class UI {
     const spacer = document.createElement('span');
     spacer.className = 'spacer';
     bar.appendChild(spacer);
+
+    this.rciEl = document.createElement('span');
+    this.rciEl.className = 'rci';
+    this.rciEl.title = 'RCI demand';
+    for (const k of ['r', 'c', 'i'] as const) {
+      const col = document.createElement('span');
+      col.className = 'rci-col';
+      const track = document.createElement('span');
+      track.className = 'rci-track';
+      const fill = document.createElement('span');
+      fill.className = `rci-fill rci-${k}`;
+      track.appendChild(fill);
+      const label = document.createElement('span');
+      label.className = 'rci-label';
+      label.textContent = k.toUpperCase();
+      col.append(track, label);
+      this.rciEl.appendChild(col);
+      this.rciFills[k] = fill;
+    }
+    bar.appendChild(this.rciEl);
 
     this.fundsEl = document.createElement('span');
     this.fundsEl.className = 'funds';
@@ -151,15 +180,20 @@ export class UI {
   }
 
   private bindKeys(): void {
+    const byHotkey = new Map<string, ToolId>();
+    for (const id of Object.keys(TOOL_INFO) as ToolId[]) {
+      byHotkey.set(TOOL_INFO[id].hotkey.toLowerCase(), id);
+    }
     window.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-      switch (e.key.toLowerCase()) {
-        case 'b':
-          this.selectTool('bulldozer');
-          break;
-        case 'r':
-          this.selectTool('road');
-          break;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      const tool = byHotkey.get(key);
+      if (tool) {
+        this.selectTool(tool);
+        return;
+      }
+      switch (key) {
         case 'escape':
           this.selectTool(null);
           break;
@@ -226,5 +260,23 @@ export class UI {
     this.fundsEl.textContent = `§${city.funds.toLocaleString('en-US')}`;
     const d = getDate(city);
     this.dateEl.textContent = `${MONTHS[d.month]} ${d.year}`;
+    this.updateRci(city);
+  }
+
+  // Each bar fills up or down from the track's midline with the sign of the
+  // demand valve.
+  private updateRci(city: City): void {
+    const HALF = 14; // px, half the track height
+    for (const k of ['r', 'c', 'i'] as const) {
+      const v = city.demand[k] / DEMAND_MAX; // -1..1
+      const px = Math.round(Math.min(1, Math.abs(v)) * HALF);
+      const fill = this.rciFills[k];
+      fill.style.height = `${px}px`;
+      if (v >= 0) {
+        fill.style.top = `${HALF - px}px`;
+      } else {
+        fill.style.top = `${HALF}px`;
+      }
+    }
   }
 }

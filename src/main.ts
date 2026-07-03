@@ -6,7 +6,7 @@ import { MapRenderer } from './render/renderer';
 import { createTileset } from './render/tileset';
 import { createCity, type City } from './sim/city';
 import { randomTerrainParams, STARTER_MAPS } from './sim/terrain';
-import { tick } from './sim/tick';
+import { primeDemand, tick } from './sim/tick';
 import { Rng } from './sim/rng';
 import { UI } from './ui/ui';
 
@@ -25,6 +25,7 @@ async function boot(): Promise<void> {
 
   const first = STARTER_MAPS[0];
   let city: City = createCity(first.seed, first.params);
+  primeDemand(city);
 
   const tileset = createTileset();
   const renderer = new MapRenderer(city, tileset);
@@ -48,6 +49,7 @@ async function boot(): Promise<void> {
         city = createCity(m.seed, m.params);
         ui.setMessage(`Welcome to ${m.name}`);
       }
+      primeDemand(city);
       renderer.setCity(city);
       camera.centerOnMap();
     },

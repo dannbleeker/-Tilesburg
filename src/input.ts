@@ -1,6 +1,6 @@
 import type { Camera } from './render/camera';
 import type { City } from './sim/city';
-import { applyTool, applyToolLine, type ToolId } from './sim/tools';
+import { applyTool, applyToolLine, TOOL_INFO, type ToolId } from './sim/tools';
 
 export interface InputOptions {
   canvas: HTMLCanvasElement;
@@ -45,7 +45,8 @@ export function setupInput(opts: InputOptions): void {
     lastPointer = { x: e.clientX, y: e.clientY };
     const tool = opts.getTool();
     if (e.button === 0 && tool !== null) {
-      toolDrag = true;
+      // Building tools place once per click; drag tools paint along the path.
+      toolDrag = TOOL_INFO[tool].drag;
       dragCost = 0;
       const cell = cellAt(e);
       lastCell = cell;

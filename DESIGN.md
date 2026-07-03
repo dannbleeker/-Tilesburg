@@ -128,12 +128,36 @@ See `ART_DIRECTION.md`. Summary: crisp flat-geometric tiles at 24 px, warm restr
 palette, all textures generated programmatically on a canvas at boot (no binary assets
 in the repo), nearest-neighbor scaling for a clean look at every zoom.
 
-## Phase 1 scope
+## Buildings & zones (phase 2)
 
-Delivered: project scaffold, deterministic RNG, city state, terrain generator + 5
-curated maps, tick clock, PixiJS tile renderer with camera pan/zoom, water animation,
-connection-aware road art, bulldozer + road tools with drag & cost readout, top bar
-(funds/date/speed), left toolbar, keyboard shortcuts, Vitest suite for the sim core.
+Multi-tile buildings (3×3 zones, 4×4 plants) are stored as: every covered cell gets
+the building's tile type (so power conduction and bulldozing stay per-cell simple),
+plus `anchor: Int32Array` mapping each covered cell to its footprint's top-left cell
+(-1 elsewhere), plus `stage: Uint8Array` holding the growth stage at anchor cells.
+Bulldozing any cell levels the whole footprint to rubble, like the original.
 
-Stubbed: everything from stage 2 of the tick pipeline onward, minimap, query tool,
-save/load, audio.
+**Power**: `scanPower` clears all POWERED bits then flood-fills (4-connected) from
+plant cells through conductors — wires, underwater cables, road/wire crossings, and
+building cells. A zone develops only if its anchor is powered; unpowered zones decay
+and show the blinking bolt. Plant output capacity (brownouts) is deferred.
+
+**Zone growth**: the scan is staggered (⅛ of the map per tick). A powered zone grows
+a stage with probability scaled by its demand valve minus a rising per-stage bar, so
+high density needs strong demand; strongly negative demand (and power loss) decays.
+Transport access joins the requirements in phase 3.
+
+**Demand**: monthly census (population = stage × 8 per zone) feeds three valves in
+[-1500, 1500]: residents chase jobs + a fixed external market, commerce serves the
+labor pool, industry employs it. Tax, pollution, unemployment, and the stadium/
+seaport/airport cap-lifters plug in during later phases.
+
+## Phase status
+
+Phase 1 delivered: scaffold, RNG, city state, terrain + 5 curated maps, tick clock,
+tile renderer + camera, water animation, road art, bulldozer/road tools, chrome,
+tests. Phase 2 delivered: power grid + wire/crossing/underwater-cable tools, R/C/I
+zones with growth stages, coal + nuclear plants, RCI demand model + always-visible
+indicator, unpowered bolts, building rendering layers.
+
+Stubbed: traffic, pollution/land value/crime, overlays, query tool, budget,
+disasters, scenarios, ordinances, minimap, save/load, audio, plant capacity limits.

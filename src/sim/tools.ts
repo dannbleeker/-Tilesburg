@@ -1,18 +1,42 @@
-import { getTile, inBounds, setTile, spend, type City } from './city';
-import { COST, Tile } from './constants';
+import { getTile, idx, inBounds, setTile, spend, type City } from './city';
+import { COST, FOOTPRINT, isBuilding, Tile, type BuildingType, type TileType } from './constants';
 
-export type ToolId = 'bulldozer' | 'road';
+export type ToolId =
+  | 'bulldozer'
+  | 'road'
+  | 'wire'
+  | 'res'
+  | 'com'
+  | 'ind'
+  | 'coal'
+  | 'nuclear';
 
 export interface ToolInfo {
   name: string;
   /** Nominal cost shown in the toolbar. */
   cost: number;
   hotkey: string;
+  /** Drag tools paint along the pointer path; others place once per click. */
+  drag: boolean;
 }
 
 export const TOOL_INFO: Record<ToolId, ToolInfo> = {
-  bulldozer: { name: 'Bulldozer', cost: COST.bulldozer, hotkey: 'B' },
-  road: { name: 'Road', cost: COST.road, hotkey: 'R' },
+  bulldozer: { name: 'Bulldozer', cost: COST.bulldozer, hotkey: 'B', drag: true },
+  road: { name: 'Road', cost: COST.road, hotkey: 'R', drag: true },
+  wire: { name: 'Power line', cost: COST.wire, hotkey: 'W', drag: true },
+  res: { name: 'Residential', cost: COST.zone, hotkey: 'Z', drag: false },
+  com: { name: 'Commercial', cost: COST.zone, hotkey: 'X', drag: false },
+  ind: { name: 'Industrial', cost: COST.zone, hotkey: 'C', drag: false },
+  coal: { name: 'Coal plant', cost: COST.coal, hotkey: 'P', drag: false },
+  nuclear: { name: 'Nuclear plant', cost: COST.nuclear, hotkey: 'N', drag: false },
+};
+
+const BUILDING_TOOL: Partial<Record<ToolId, { type: BuildingType; cost: number }>> = {
+  res: { type: Tile.ZoneR, cost: COST.zone },
+  com: { type: Tile.ZoneC, cost: COST.zone },
+  ind: { type: Tile.ZoneI, cost: COST.zone },
+  coal: { type: Tile.Coal, cost: COST.coal },
+  nuclear: { type: Tile.Nuclear, cost: COST.nuclear },
 };
 
 export interface ToolResult {
@@ -25,9 +49,9 @@ export interface ToolResult {
 const NO_FUNDS: ToolResult = { ok: false, cost: 0, reason: 'Not enough funds' };
 
 /**
- * Apply a tool to one tile. Validates terrain + funds, mutates the grid, and
- * charges the city. All grid mutation goes through here (or bulk helpers that
- * call here); the renderer never writes tiles.
+ * Apply a tool at a tile (for buildings, the cursor tile is the footprint
+ * center). Validates terrain + funds, mutates the grid, charges the city.
+ * All grid mutation goes through here; the renderer never writes tiles.
  */
 export function applyTool(city: City, tool: ToolId, x: number, y: number): ToolResult {
   if (!inBounds(x, y)) return { ok: false, cost: 0, reason: 'Out of bounds' };
@@ -36,16 +60,43 @@ export function applyTool(city: City, tool: ToolId, x: number, y: number): ToolR
       return bulldoze(city, x, y);
     case 'road':
       return placeRoad(city, x, y);
+    case 'wire':
+      return placeWire(city, x, y);
+    default: {
+      const b = BUILDING_TOOL[tool];
+      if (!b) return { ok: false, cost: 0, reason: 'Unknown tool' };
+      return placeBuilding(city, b.type, b.cost, x, y);
+    }
   }
 }
 
 function bulldoze(city: City, x: number, y: number): ToolResult {
   const t = getTile(city, x, y);
+  if (isBuilding(t)) return demolishBuilding(city, x, y);
   if (t === Tile.Water) return { ok: false, cost: 0, reason: "Can't bulldoze water" };
   if (t === Tile.Dirt) return { ok: false, cost: 0, reason: 'Nothing to clear' };
   if (!spend(city, COST.bulldozer)) return NO_FUNDS;
-  // Clearing a bridge returns the tile to open water.
-  setTile(city, x, y, t === Tile.Bridge ? Tile.Water : Tile.Dirt);
+  // Clearing a bridge or underwater cable returns the tile to open water.
+  setTile(city, x, y, t === Tile.Bridge || t === Tile.WireWater ? Tile.Water : Tile.Dirt);
+  return { ok: true, cost: COST.bulldozer };
+}
+
+// Bulldozing any cell of a building levels the whole footprint to rubble,
+// like the original's one-click zone demolition.
+function demolishBuilding(city: City, x: number, y: number): ToolResult {
+  if (!spend(city, COST.bulldozer)) return NO_FUNDS;
+  const anchorIdx = city.anchor[idx(x, y)];
+  const size = FOOTPRINT[city.tiles[anchorIdx] as BuildingType];
+  const ax = anchorIdx % city.width;
+  const ay = Math.floor(anchorIdx / city.width);
+  for (let dy = 0; dy < size; dy++) {
+    for (let dx = 0; dx < size; dx++) {
+      const i = idx(ax + dx, ay + dy);
+      city.tiles[i] = Tile.Rubble;
+      city.anchor[i] = -1;
+    }
+  }
+  city.stage[anchorIdx] = 0;
   return { ok: true, cost: COST.bulldozer };
 }
 
@@ -54,10 +105,15 @@ function placeRoad(city: City, x: number, y: number): ToolResult {
   switch (t) {
     case Tile.Road:
     case Tile.Bridge:
+    case Tile.RoadWire:
       // Dragging across existing road is a free no-op, like the original.
       return { ok: true, cost: 0 };
-    case Tile.Rubble:
-      return { ok: false, cost: 0, reason: 'Must bulldoze rubble first' };
+    case Tile.Wire: {
+      // Road under a power line forms a crossing.
+      if (!spend(city, COST.road)) return NO_FUNDS;
+      setTile(city, x, y, Tile.RoadWire);
+      return { ok: true, cost: COST.road };
+    }
     case Tile.Water: {
       if (!spend(city, COST.bridge)) return NO_FUNDS;
       setTile(city, x, y, Tile.Bridge);
@@ -75,7 +131,79 @@ function placeRoad(city: City, x: number, y: number): ToolResult {
       setTile(city, x, y, Tile.Road);
       return { ok: true, cost: COST.road };
     }
+    default:
+      return { ok: false, cost: 0, reason: "Can't build a road there" };
   }
+}
+
+function placeWire(city: City, x: number, y: number): ToolResult {
+  const t = getTile(city, x, y);
+  switch (t) {
+    case Tile.Wire:
+    case Tile.WireWater:
+    case Tile.RoadWire:
+      return { ok: true, cost: 0 };
+    case Tile.Road: {
+      // Power line over a road forms a crossing.
+      if (!spend(city, COST.wire)) return NO_FUNDS;
+      setTile(city, x, y, Tile.RoadWire);
+      return { ok: true, cost: COST.wire };
+    }
+    case Tile.Water: {
+      if (!spend(city, COST.wireWater)) return NO_FUNDS;
+      setTile(city, x, y, Tile.WireWater);
+      return { ok: true, cost: COST.wireWater };
+    }
+    case Tile.Tree: {
+      const cost = COST.wire + COST.bulldozer;
+      if (!spend(city, cost)) return NO_FUNDS;
+      setTile(city, x, y, Tile.Wire);
+      return { ok: true, cost };
+    }
+    case Tile.Dirt: {
+      if (!spend(city, COST.wire)) return NO_FUNDS;
+      setTile(city, x, y, Tile.Wire);
+      return { ok: true, cost: COST.wire };
+    }
+    default:
+      return { ok: false, cost: 0, reason: "Can't run a power line there" };
+  }
+}
+
+/**
+ * Place a footprint centered on the cursor (anchor = top-left). Every cell
+ * must be clear land; trees are auto-bulldozed at +§1 each.
+ */
+function placeBuilding(city: City, type: BuildingType, baseCost: number, cx: number, cy: number): ToolResult {
+  const size = FOOTPRINT[type];
+  const ax = cx - 1;
+  const ay = cy - 1;
+
+  let treeCount = 0;
+  for (let dy = 0; dy < size; dy++) {
+    for (let dx = 0; dx < size; dx++) {
+      const x = ax + dx;
+      const y = ay + dy;
+      if (!inBounds(x, y)) return { ok: false, cost: 0, reason: 'Out of bounds' };
+      const t = getTile(city, x, y);
+      if (t === Tile.Tree) treeCount++;
+      else if (t !== Tile.Dirt) return { ok: false, cost: 0, reason: 'Land must be clear' };
+    }
+  }
+
+  const cost = baseCost + treeCount * COST.bulldozer;
+  if (!spend(city, cost)) return NO_FUNDS;
+
+  const anchorIdx = idx(ax, ay);
+  for (let dy = 0; dy < size; dy++) {
+    for (let dx = 0; dx < size; dx++) {
+      const i = idx(ax + dx, ay + dy);
+      city.tiles[i] = type;
+      city.anchor[i] = anchorIdx;
+    }
+  }
+  city.stage[anchorIdx] = 0;
+  return { ok: true, cost };
 }
 
 export interface LineResult {
@@ -88,8 +216,8 @@ export interface LineResult {
 }
 
 /**
- * Apply a tool along a Bresenham line from (x0,y0) to (x1,y1) inclusive.
- * Used by drag placement so fast pointer moves leave no gaps.
+ * Apply a drag tool along a Bresenham line from (x0,y0) to (x1,y1) inclusive,
+ * so fast pointer moves leave no gaps.
  */
 export function applyToolLine(
   city: City,
@@ -128,4 +256,13 @@ export function applyToolLine(
     }
   }
   return result;
+}
+
+/** Tile types a given tile reads as for connection-mask purposes. */
+export function isRoadLike(t: TileType | number): boolean {
+  return t === Tile.Road || t === Tile.Bridge || t === Tile.RoadWire;
+}
+
+export function isWireLike(t: TileType | number): boolean {
+  return t === Tile.Wire || t === Tile.WireWater || t === Tile.RoadWire || isBuilding(t);
 }
