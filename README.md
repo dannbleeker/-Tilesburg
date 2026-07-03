@@ -37,7 +37,7 @@ npm run build      # typecheck + production build
 
 ## Status
 
-Phase 4 of 7 (money) — see `DESIGN.md` for the data model and tick
+Phase 5 of 7 (chaos) — see `DESIGN.md` for the data model and tick
 pipeline, and `ART_DIRECTION.md` for the visual rules. Working now: seeded
 deterministic terrain (5 curated maps + random), roads/bridges, rail with
 level crossings and water trestles, power lines with crossings and underwater
@@ -47,9 +47,12 @@ stations, trip-based traffic that pollutes roads and fades over time,
 pollution/land value/crime/population/coverage maps, 9 overlay views, a query
 tool, the RCI demand indicator, an annual budget cycle (0–20% property tax,
 police/fire/transit funding sliders, auto-budget, infrastructure decay when
-transit is underfunded), a city evaluation window (approval, city class, net
-migration, assessed value, top complaints), and an 88-test Vitest suite.
+transit is underfunded), a city evaluation window, and all seven disasters —
+fire (suppressed by fire coverage), flood, tornado, earthquake, monster
+(hunts pollution), plane crash, and nuclear meltdown with radioactive
+fallout — random (toggleable) or triggered from the Disasters menu, with a
+message ticker. 101-test Vitest suite.
 
-Coming next per the delivery plan: the seven disasters, scenarios +
-ordinances + stadium/seaport/airport, and the final polish pass (audio,
-minimap, save/load, traffic animation).
+Coming next per the delivery plan: scenarios + ordinances +
+stadium/seaport/airport, then the final polish pass (audio, minimap,
+save/load, traffic animation).

@@ -74,6 +74,10 @@ export function computePollution(city: City): void {
       v = 40 + (a >= 0 ? stage[a] * 15 : 0);
     } else if (t === Tile.Coal) {
       v = 90;
+    } else if (t === Tile.Fire) {
+      v = 70;
+    } else if (t === Tile.Radioactive) {
+      v = 60;
     } else if (t === Tile.Road || t === Tile.Bridge || t === Tile.RoadWire || t === Tile.RoadRail) {
       v = trafficDensity[i] * 0.5;
     }

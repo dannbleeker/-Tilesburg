@@ -89,6 +89,9 @@ function bulldoze(city: City, x: number, y: number): ToolResult {
   const t = getTile(city, x, y);
   if (isBuilding(t)) return demolishBuilding(city, x, y);
   if (t === Tile.Water) return { ok: false, cost: 0, reason: "Can't bulldoze water" };
+  if (t === Tile.Fire) return { ok: false, cost: 0, reason: "It's on fire" };
+  if (t === Tile.Flood) return { ok: false, cost: 0, reason: 'Flooded' };
+  if (t === Tile.Radioactive) return { ok: false, cost: 0, reason: 'Radioactive — cannot clear' };
   if (t === Tile.Dirt) return { ok: false, cost: 0, reason: 'Nothing to clear' };
   if (!spend(city, COST.bulldozer)) return NO_FUNDS;
   // Clearing anything built over water returns the tile to open water.
@@ -101,7 +104,12 @@ function bulldoze(city: City, x: number, y: number): ToolResult {
 // like the original's one-click zone demolition.
 function demolishBuilding(city: City, x: number, y: number): ToolResult {
   if (!spend(city, COST.bulldozer)) return NO_FUNDS;
-  const anchorIdx = city.anchor[idx(x, y)];
+  levelFootprint(city, city.anchor[idx(x, y)]);
+  return { ok: true, cost: COST.bulldozer };
+}
+
+/** Reduce a whole building footprint to rubble (bulldozer, fire, disasters). */
+export function levelFootprint(city: City, anchorIdx: number): void {
   const size = FOOTPRINT[city.tiles[anchorIdx] as BuildingType];
   const ax = anchorIdx % city.width;
   const ay = Math.floor(anchorIdx / city.width);
@@ -113,7 +121,6 @@ function demolishBuilding(city: City, x: number, y: number): ToolResult {
     }
   }
   city.stage[anchorIdx] = 0;
-  return { ok: true, cost: COST.bulldozer };
 }
 
 function placeRoad(city: City, x: number, y: number): ToolResult {

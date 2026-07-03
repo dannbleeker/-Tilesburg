@@ -80,6 +80,27 @@ export interface City {
   pendingBudget: BudgetSummary | null;
   /** Population at the last January, for net migration. */
   lastYearPop: number;
+  /** Random disasters toggle (manual triggers always work). */
+  disastersEnabled: boolean;
+  /** Roaming disaster actors; null when absent. */
+  monster: DisasterActor | null;
+  tornado: DisasterActor | null;
+  /** Ticks until active flood water recedes. */
+  floodTicks: number;
+  /** Sim events for the message ticker; the UI drains this each frame. */
+  messages: string[];
+}
+
+export interface DisasterActor {
+  x: number;
+  y: number;
+  /** Ticks left before it leaves. */
+  ttl: number;
+  /** Current heading (radians) — tornado wanders, monster steers. */
+  dir: number;
+  /** Monster destination (max-pollution cell at spawn). */
+  targetX: number;
+  targetY: number;
 }
 
 export function createCity(seed: number, params: TerrainParams): City {
@@ -111,6 +132,11 @@ export function createCity(seed: number, params: TerrainParams): City {
     autoBudget: false,
     pendingBudget: null,
     lastYearPop: 0,
+    disastersEnabled: true,
+    monster: null,
+    tornado: null,
+    floodTicks: 0,
+    messages: [],
   };
 }
 

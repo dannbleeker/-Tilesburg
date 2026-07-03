@@ -24,6 +24,9 @@ export class MapRenderer {
   private buildingLayer = new Container();
   private overlayLayer = new Container();
   private boltLayer = new Container();
+  private actorLayer = new Container();
+  private tornadoSprite: Sprite;
+  private monsterSprite: Sprite;
 
   private sprites: Sprite[] = [];
   private buildings = new Map<number, Sprite>();
@@ -40,11 +43,20 @@ export class MapRenderer {
 
   constructor(city: City, private tileset: Tileset) {
     this.city = city;
+    this.tornadoSprite = new Sprite(tileset.tornado);
+    this.monsterSprite = new Sprite(tileset.monster);
+    for (const s of [this.tornadoSprite, this.monsterSprite]) {
+      s.scale.set(2);
+      s.anchor.set(0.5);
+      s.visible = false;
+      this.actorLayer.addChild(s);
+    }
     this.container.addChild(
       this.groundLayer,
       this.buildingLayer,
       this.overlayLayer,
       this.boltLayer,
+      this.actorLayer,
       this.overlayView.sprite,
     );
     for (let y = 0; y < MAP_H; y++) {
@@ -109,8 +121,23 @@ export class MapRenderer {
         this.shadowStage[i] = stage[i];
         this.shadowPower[i] = powered;
         dirty[i] = 1;
-      } else if (flipWater && (tiles[i] === Tile.Water || tiles[i] === Tile.Bridge)) {
+      } else if (
+        flipWater &&
+        (tiles[i] === Tile.Water || tiles[i] === Tile.Fire || tiles[i] === Tile.Flood)
+      ) {
         dirty[i] = 1;
+      }
+    }
+
+    // Roaming disaster actors.
+    for (const [sprite, actor] of [
+      [this.tornadoSprite, this.city.tornado],
+      [this.monsterSprite, this.city.monster],
+    ] as const) {
+      sprite.visible = actor !== null;
+      if (actor) {
+        sprite.x = (actor.x + 0.5) * TILE_PX;
+        sprite.y = (actor.y + 0.5) * TILE_PX;
       }
     }
 
@@ -241,6 +268,12 @@ export class MapRenderer {
     switch (t) {
       case Tile.Water:
         return ts.water[this.waterFrame];
+      case Tile.Fire:
+        return ts.fire[this.waterFrame];
+      case Tile.Flood:
+        return ts.flood[this.waterFrame];
+      case Tile.Radioactive:
+        return ts.radioactive;
       case Tile.Tree:
         return ts.tree[variant % ts.tree.length];
       case Tile.Rubble:

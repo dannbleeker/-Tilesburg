@@ -2,6 +2,7 @@ import { applyBudget, assessBudget, decayInfrastructure } from './budget';
 import type { City } from './city';
 import { TICKS_PER_MONTH, TICKS_PER_YEAR } from './constants';
 import { evaluateDemand, takeCensus } from './demand';
+import { advanceDisasters } from './disasters';
 import { cityPopulation } from './evaluation';
 import {
   computeCrime,
@@ -25,7 +26,7 @@ export function tick(city: City): void {
   scanZones(city);
   generateTraffic(city);
   diffuseMaps(city);
-  advanceDisasters(city); // [phase 5]
+  advanceDisasters(city);
   if (city.cityTime % TICKS_PER_MONTH === 0) {
     takeCensus(city);
     evaluateDemand(city);
@@ -63,8 +64,6 @@ function diffuseMaps(city: City): void {
       break;
   }
 }
-
-function advanceDisasters(_city: City): void {}
 
 /**
  * The January cycle: infrastructure decays by the transit funding gap, the

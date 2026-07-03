@@ -121,5 +121,16 @@ Font: system UI stack; tabular numerals for funds and date.
   power view shows powered conductors green / unpowered red; transport shows
   roads white, rails steel-blue.
 
-Later phases extend this file with stadium/seaport/airport sprites, disaster
-effects, and traffic animation specs before any of that art is drawn.
+## Per-tile specs (phase 5)
+
+- **Fire** — `alertRed` plate with 2-frame `wireYellow` flame-triangle loop on
+  the global 500 ms cadence.
+- **Flood** — water tile with pale `uiText` churn streaks, animated.
+- **Radioactive** — dirt base + `wireYellow` disc with `asphalt` trefoil.
+- **Tornado** — stacked funnel discs, `rubbleHi` over `rubble` (NW light),
+  rendered 2× tile size and anchored to the actor's tile.
+- **Monster** — boxy kaiju in the tree-green pair with `wireYellow` eyes and
+  back spines, 2× tile size.
+
+Later phases extend this file with stadium/seaport/airport sprites and traffic
+animation specs before any of that art is drawn.

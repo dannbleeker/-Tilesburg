@@ -1,5 +1,14 @@
 import { OVERLAYS, type OverlayId } from '../render/overlay';
 import { applyBudget, assessBudget, cashFlow, fundedCost } from '../sim/budget';
+import {
+  triggerEarthquake,
+  triggerFire,
+  triggerFlood,
+  triggerMeltdown,
+  triggerMonster,
+  triggerPlaneCrash,
+  triggerTornado,
+} from '../sim/disasters';
 import { getDate, type BudgetSummary, type City } from '../sim/city';
 import { DEMAND_MAX, SPEEDS, type SpeedId } from '../sim/constants';
 import { evaluate } from '../sim/evaluation';
@@ -143,6 +152,11 @@ export class UI {
     evalBtn.title = 'City evaluation (E)';
     evalBtn.addEventListener('click', () => this.openEvaluation());
     bar.appendChild(evalBtn);
+
+    const disasterBtn = document.createElement('button');
+    disasterBtn.textContent = 'Disasters';
+    disasterBtn.addEventListener('click', () => this.openDisasters());
+    bar.appendChild(disasterBtn);
 
     const spacer = document.createElement('span');
     spacer.className = 'spacer';
@@ -364,6 +378,60 @@ export class UI {
     this.openModal(panel);
   }
 
+  /** The disasters menu: manual triggers + the random-disasters toggle. */
+  openDisasters(): void {
+    const city = this.city;
+    if (!city) return;
+    const panel = document.createElement('div');
+    panel.className = 'modal-panel';
+    panel.innerHTML = '<div class="modal-title">Disasters</div>';
+
+    const entries: Array<[string, (c: City) => void]> = [
+      ['Fire', triggerFire],
+      ['Flood', triggerFlood],
+      ['Tornado', triggerTornado],
+      ['Earthquake', triggerEarthquake],
+      ['Monster', triggerMonster],
+      ['Plane crash', triggerPlaneCrash],
+      [
+        'Nuclear meltdown',
+        (c) => {
+          if (!triggerMeltdown(c)) this.setMessage('No nuclear plant to melt down');
+        },
+      ],
+    ];
+    const grid = document.createElement('div');
+    grid.className = 'disaster-grid';
+    for (const [name, fn] of entries) {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.addEventListener('click', () => {
+        fn(city);
+        this.closeModal();
+      });
+      grid.appendChild(btn);
+    }
+    panel.appendChild(grid);
+
+    const randRow = document.createElement('label');
+    randRow.className = 'modal-row';
+    const rand = document.createElement('input');
+    rand.type = 'checkbox';
+    rand.checked = city.disastersEnabled;
+    rand.addEventListener('change', () => (city.disastersEnabled = rand.checked));
+    const randLabel = document.createElement('span');
+    randLabel.textContent = 'Random disasters';
+    randRow.append(rand, randLabel);
+    panel.appendChild(randRow);
+
+    const close = document.createElement('button');
+    close.className = 'modal-continue';
+    close.textContent = 'Close';
+    close.addEventListener('click', () => this.closeModal());
+    panel.appendChild(close);
+    this.openModal(panel);
+  }
+
   openEvaluation(): void {
     const city = this.city;
     if (!city) return;
@@ -523,6 +591,10 @@ export class UI {
     const d = getDate(city);
     this.dateEl.textContent = `${MONTHS[d.month]} ${d.year}`;
     this.updateRci(city);
+    // Drain sim events into the message ticker.
+    while (city.messages.length > 0) {
+      this.setMessage(city.messages.shift() as string);
+    }
     // The sim posted a January budget for review.
     if (city.pendingBudget && !this.modalOpen) this.openBudget(true);
   }

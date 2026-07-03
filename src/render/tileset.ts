@@ -40,6 +40,13 @@ export interface Tileset {
   fireStation: Texture;
   /** Blinking unpowered indicator. */
   bolt: Texture;
+  /** Disaster tiles; fire animates on the global 500ms cadence. */
+  fire: Texture[];
+  flood: Texture[];
+  radioactive: Texture;
+  /** Roaming disaster actors (rendered at 2x tile size). */
+  tornado: Texture;
+  monster: Texture;
 }
 
 type Ctx = CanvasRenderingContext2D;
@@ -406,6 +413,92 @@ function drawNuclear(ctx: Ctx): void {
   }
 }
 
+// --- Disasters -------------------------------------------------------------
+
+function drawFire(ctx: Ctx, frame: number): void {
+  ctx.fillStyle = PAL.alertRed;
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX);
+  // Flame tongues alternate position per frame.
+  ctx.fillStyle = PAL.wireYellow;
+  const tongues: Array<[number, number]> = frame === 0
+    ? [[4, 10], [12, 4], [16, 14]]
+    : [[8, 6], [14, 12], [4, 16]];
+  for (const [x, y] of tongues) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + 8);
+    ctx.lineTo(x + 3, y);
+    ctx.lineTo(x + 6, y + 8);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawFlood(ctx: Ctx, frame: number): void {
+  drawWater(ctx, frame);
+  // Churned surface: pale streaks over the water.
+  ctx.fillStyle = PAL.uiText;
+  const streaks: Array<[number, number]> = frame === 0 ? [[2, 4], [12, 16]] : [[8, 10], [16, 2]];
+  for (const [x, y] of streaks) ctx.fillRect(x, y, 6, 2);
+}
+
+function drawRadioactive(ctx: Ctx): void {
+  drawDirtBase(ctx, 1);
+  ctx.fillStyle = PAL.wireYellow;
+  ctx.beginPath();
+  ctx.arc(12, 12, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PAL.asphalt;
+  for (const a of [-Math.PI / 2, Math.PI / 6, (5 * Math.PI) / 6]) {
+    ctx.beginPath();
+    ctx.moveTo(12, 12);
+    ctx.arc(12, 12, 6, a - 0.5, a + 0.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawTornado(ctx: Ctx): void {
+  // Stacked funnel discs, light side NW.
+  const discs: Array<[number, number, number]> = [
+    [12, 4, 9],
+    [11, 9, 7],
+    [12, 14, 5],
+    [11, 18, 3],
+    [12, 21, 2],
+  ];
+  for (const [cx, cy, r] of discs) {
+    ctx.fillStyle = PAL.rubble;
+    ctx.beginPath();
+    ctx.arc(cx + 1, cy + 1, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PAL.rubbleHi;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawMonster(ctx: Ctx): void {
+  // A boxy kaiju in the flat style: body, NW light, eyes, spines.
+  ctx.fillStyle = PAL.treeDark;
+  ctx.fillRect(4, 6, 16, 16);
+  ctx.fillStyle = PAL.treeHi;
+  ctx.fillRect(4, 6, 16, 2);
+  ctx.fillRect(4, 6, 2, 16);
+  ctx.fillStyle = PAL.wireYellow;
+  ctx.fillRect(8, 12, 3, 3);
+  ctx.fillRect(14, 12, 3, 3);
+  ctx.fillStyle = PAL.treeDark;
+  for (const [x, y] of [[6, 2], [11, 0], [16, 2]] as const) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + 6);
+    ctx.lineTo(x + 2, y);
+    ctx.lineTo(x + 4, y + 6);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
 /** Civic station: pad + one identity-colored hall with a big letter glyph. */
 function drawStation(ctx: Ctx, base: string, hi: string, glyph: string): void {
   const px = 3 * TILE_PX;
@@ -445,5 +538,10 @@ export function createTileset(): Tileset {
     police: makeBig(3, (c) => drawStation(c, PAL.cZone, PAL.cZoneHi, 'P')),
     fireStation: makeBig(3, (c) => drawStation(c, PAL.alertRed, PAL.alertRedHi, 'F')),
     bolt: makeTile((c) => drawBoltShape(c, 0, 0, 1)),
+    fire: [0, 1].map((f) => makeTile((c) => drawFire(c, f))),
+    flood: [0, 1].map((f) => makeTile((c) => drawFlood(c, f))),
+    radioactive: makeTile(drawRadioactive),
+    tornado: makeTile(drawTornado),
+    monster: makeTile(drawMonster),
   };
 }

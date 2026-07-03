@@ -302,6 +302,22 @@ button.active {
   color: var(--ui-accent);
 }
 
+.disaster-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.disaster-grid button {
+  border: 1px solid #3a4150;
+  border-bottom: 2px solid transparent;
+}
+
+.disaster-grid button:hover {
+  border-bottom-color: var(--ui-accent);
+}
+
 .modal-continue {
   margin-top: 12px;
   width: 100%;

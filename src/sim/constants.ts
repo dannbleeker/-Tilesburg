@@ -31,6 +31,10 @@ export const Tile = {
   Nuclear: 16,
   Police: 17,
   FireStation: 18,
+  // Disaster tiles (not buildable, not building cells).
+  Fire: 19,
+  Flood: 20,
+  Radioactive: 21,
 } as const;
 export type TileType = (typeof Tile)[keyof typeof Tile];
 

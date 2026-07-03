@@ -191,6 +191,28 @@ The evaluation window computes on demand: population (zone pop × 20), city clas
 approval (crime/pollution/traffic averages, tax excess, unemployment, blackout
 fraction), and the top-4 complaints above a nuisance threshold.
 
+## Disasters (phase 5)
+
+All seven, manually triggerable from the Disasters menu and rolled randomly
+(toggleable) once a month at low odds, weighted toward fire. Everything runs on
+the city RNG inside the tick, so disasters replay deterministically.
+
+- **Fire** — a tile type. Spreads every other tick to trees (20%) and building
+  cells (10%, leveling the footprint); fire coverage damps ignition by up to 80%
+  and speeds burnout. Burnt cells become rubble.
+- **Flood** — rises from shoreline tiles, creeps over land/buildings while a
+  global countdown runs, then recedes to dirt (30% rubble).
+- **Tornado / monster** — roaming actors stored on the city (`x, y, ttl, dir`).
+  The tornado drunk-walks from the north edge wrecking its path; the monster
+  comes ashore aimed at the max-pollution cell, stomps a wider trail, starts
+  fires, and wanders off when bored.
+- **Earthquake** — instant scattered destruction plus a few ignitions.
+- **Plane crash** — a 3×3 blast with fires at a random site.
+- **Meltdown** — needs a nuclear plant: the footprint burns and radioactive
+  tiles scatter nearby. Radioactive land can't be bulldozed and blocks building.
+
+Sim → UI messaging: `city.messages` queue drained by the ticker each frame.
+
 ## Phase status
 
 Phase 1: scaffold, RNG, city state, terrain + 5 curated maps, tick clock, tile
@@ -200,6 +222,8 @@ indicator, unpowered bolts. Phase 3: rail + level crossings, police/fire station
 trip generation with access gating, traffic/pollution/land value/crime/coverage/
 population maps, 9 overlay views, query tool. Phase 4: annual budget cycle with
 tax + funding sliders, infrastructure decay, auto-budget, evaluation window.
+Phase 5: all seven disasters with random rolls, the Disasters menu, and the
+message ticker queue.
 
-Stubbed: disasters, scenarios, ordinances, minimap, save/load, audio, plant
-capacity limits, traffic animation.
+Stubbed: scenarios, ordinances, stadium/seaport/airport, minimap, save/load,
+audio, plant capacity limits, traffic animation.
