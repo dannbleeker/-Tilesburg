@@ -101,6 +101,10 @@ async function boot(): Promise<void> {
     },
   });
 
+  // On touch devices, start in Pan mode so the first swipe moves the map
+  // instead of accidentally painting roads.
+  if (window.matchMedia('(pointer: coarse)').matches) ui.selectTool(null);
+
   const minimap = new Minimap(uiRoot, {
     getViewRect: () => camera.viewTileRect(),
     onJump: (tx, ty) => camera.centerOnTile(tx, ty),

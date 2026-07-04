@@ -20,12 +20,14 @@ export interface InputOptions {
 }
 
 /**
- * Pointer + wheel input on the map canvas.
- * - Left drag with a tool: paint tiles along the pointer path (Bresenham
+ * Pointer + wheel + touch input on the map canvas.
+ * - Primary drag with a tool: paint tiles along the pointer path (Bresenham
  *   between successive cells so fast moves leave no gaps), immediate
  *   placement like the original, with a running cost readout.
- * - Left drag in pan mode, or middle/right drag any time: pan the camera.
+ * - Primary drag in pan mode, or middle/right drag any time: pan the camera.
  * - Wheel: zoom anchored at the cursor. Arrow keys: pan.
+ * - Touch: a second finger cancels any in-progress paint and switches to
+ *   pinch-zoom + two-finger pan until all but one finger lifts.
  */
 export function setupInput(opts: InputOptions): void {
   const { canvas, camera } = opts;
@@ -35,6 +37,9 @@ export function setupInput(opts: InputOptions): void {
   let dragCost = 0;
   let lastCell: { x: number; y: number } | null = null;
   let lastPointer = { x: 0, y: 0 };
+  // Active pointers (for multi-touch) and the current pinch state.
+  const pointers = new Map<number, { x: number; y: number }>();
+  let pinch: { dist: number; midX: number; midY: number } | null = null;
 
   const cellAt = (e: PointerEvent) => {
     const rect = canvas.getBoundingClientRect();
@@ -46,9 +51,33 @@ export function setupInput(opts: InputOptions): void {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
+  const enterPinch = () => {
+    // Two fingers down: abort any paint/pan in progress and pinch instead.
+    toolDrag = false;
+    panDrag = false;
+    lastCell = null;
+    opts.onDragCost(null, 0, 0);
+    const [a, b] = [...pointers.values()];
+    pinch = {
+      dist: Math.hypot(a.x - b.x, a.y - b.y),
+      midX: (a.x + b.x) / 2,
+      midY: (a.y + b.y) / 2,
+    };
+  };
+
   canvas.addEventListener('pointerdown', (e) => {
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // A pointer can be gone by the time we get here (fast touch lifts).
+    }
     lastPointer = { x: e.clientX, y: e.clientY };
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      enterPinch();
+      return;
+    }
+    if (pointers.size > 2) return;
     const tool = opts.getTool();
     if (e.button === 0 && tool === 'query') {
       const cell = cellAt(e);
@@ -77,6 +106,23 @@ export function setupInput(opts: InputOptions): void {
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) {
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pinch && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+      const rect = canvas.getBoundingClientRect();
+      if (pinch.dist > 0 && dist > 0) {
+        camera.zoomAt(midX - rect.left, midY - rect.top, dist / pinch.dist);
+      }
+      camera.pan(midX - pinch.midX, midY - pinch.midY);
+      pinch = { dist, midX, midY };
+      return;
+    }
+
     const dx = e.clientX - lastPointer.x;
     const dy = e.clientY - lastPointer.y;
     lastPointer = { x: e.clientX, y: e.clientY };
@@ -98,7 +144,9 @@ export function setupInput(opts: InputOptions): void {
     opts.onDragCost(dragCost, p.x, p.y);
   });
 
-  const endDrag = () => {
+  const endDrag = (e: PointerEvent) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
     toolDrag = false;
     panDrag = false;
     lastCell = null;

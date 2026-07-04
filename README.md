@@ -49,6 +49,12 @@ a subdirectory, Netlify/Vercel/Cloudflare Pages, or a plain web server.
 In the classic tradition, typing `fund` wires §10,000 to the city treasury —
 repeat as often as your conscience allows.
 
+On touch devices the layout adapts: the toolbar docks to the bottom of the
+screen, the top bar scrolls sideways with the HUD kept first, and the game
+starts in Pan mode. One finger pans (or paints, with a tool selected), two
+fingers pinch-zoom and pan, and a second finger safely cancels an accidental
+paint stroke.
+
 ## Scenarios
 
 All eight classics are playable from the picker: San Francisco 1906

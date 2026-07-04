@@ -8,6 +8,8 @@
   --ui-accent: #e3b93d;
   --topbar-h: 44px;
   --toolbar-w: 92px;
+  /* Height of the bottom toolbar in the phone layout; 0 on desktop. */
+  --toolbar-bottom-h: 0px;
 }
 
 * {
@@ -20,10 +22,13 @@ html,
 body {
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   background: var(--ui-bg);
   color: var(--ui-text);
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 14px;
+  /* Kill double-tap zoom on the chrome; the canvas handles its own gestures. */
+  touch-action: manipulation;
 }
 
 #game {
@@ -31,7 +36,7 @@ body {
   top: var(--topbar-h);
   left: var(--toolbar-w);
   right: 0;
-  bottom: 0;
+  bottom: var(--toolbar-bottom-h);
 }
 
 #game canvas {
@@ -386,4 +391,108 @@ button.muted {
   /* offset from #game origin */
   margin-left: var(--toolbar-w);
   margin-top: var(--topbar-h);
+}
+
+/* --- phone layout: toolbar docks to the bottom, top bar scrolls ---------- */
+
+@media (max-width: 760px) {
+  :root {
+    --toolbar-w: 0px;
+    --toolbar-bottom-h: 78px;
+  }
+
+  .topbar {
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .topbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar > * {
+    flex: 0 0 auto;
+    order: 2;
+  }
+
+  /* HUD first, then speeds, then everything else scrolls off to the right. */
+  .topbar .title,
+  .topbar .spacer {
+    display: none;
+  }
+
+  .topbar .funds,
+  .topbar .date,
+  .topbar .rci {
+    order: 0;
+  }
+
+  .topbar .funds {
+    min-width: 0;
+  }
+
+  .topbar .date {
+    min-width: 0;
+  }
+
+  .topbar .speeds {
+    order: 1;
+  }
+
+  .toolbar {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: var(--toolbar-bottom-h);
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px;
+    scrollbar-width: none;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .toolbar .tool {
+    flex: 0 0 auto;
+    min-width: 64px;
+    padding: 4px 6px;
+  }
+
+  .minimap {
+    width: 144px;
+    height: 120px;
+    right: 8px;
+    bottom: calc(var(--toolbar-bottom-h) + 10px);
+  }
+
+  .message {
+    bottom: calc(var(--toolbar-bottom-h) + 14px);
+    max-width: 92vw;
+  }
+
+  .modal-panel,
+  .modal-panel.modal-wide {
+    width: min(460px, calc(100vw - 24px));
+    max-height: 82vh;
+    overflow-y: auto;
+  }
+
+  .ordinance-row {
+    grid-template-columns: 18px 110px 1fr 62px;
+  }
+}
+
+/* Bigger touch targets on coarse pointers, regardless of screen size. */
+@media (pointer: coarse) {
+  button,
+  select {
+    min-height: 40px;
+  }
 }
