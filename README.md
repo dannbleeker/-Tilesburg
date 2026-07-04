@@ -16,6 +16,16 @@ npm test           # sim engine unit tests
 npm run build      # typecheck + production build
 ```
 
+## Hosting
+
+The game is a fully static site (no backend; saves live in the player's
+browser), so `npm run build` produces a self-contained `dist/` you can put on
+any static host. `.github/workflows/deploy.yml` builds, tests, and publishes
+to GitHub Pages on every push — enable it once under
+**Settings → Pages → Source: GitHub Actions** if the first run doesn't do it
+automatically. Asset paths are relative (`base: './'`), so it also works from
+a subdirectory, Netlify/Vercel/Cloudflare Pages, or a plain web server.
+
 ## Controls
 
 | Input | Action |
