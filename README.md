@@ -36,6 +36,9 @@ npm run build      # typecheck + production build
 | `Space` | Pause toggle |
 | `0` `1` `2` `3` | Paused / slow / normal / fast |
 
+In the classic tradition, typing `fund` wires §10,000 to the city treasury —
+repeat as often as your conscience allows.
+
 ## Scenarios
 
 All eight classics are playable from the picker: San Francisco 1906

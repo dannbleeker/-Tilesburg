@@ -111,6 +111,8 @@ export class UI {
   private prevModalSpeed: SpeedId = 'normal';
   private city: City | null = null;
   private outcomeShown = false;
+  /** Recent letter keys + the tool active before each, for cheat codes. */
+  private cheatBuffer: Array<{ key: string; tool: ToolSelection }> = [];
   private toolButtons = new Map<ToolSelection, HTMLButtonElement>();
   private speedButtons = new Map<SpeedId, HTMLButtonElement>();
   private messageTimer = 0;
@@ -743,6 +745,7 @@ export class UI {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const key = e.key.toLowerCase();
+      if (this.feedCheat(key)) return;
       const tool = byHotkey.get(key);
       if (tool) {
         this.selectTool(tool);
@@ -780,6 +783,31 @@ export class UI {
           break;
       }
     });
+  }
+
+  /**
+   * Cheat codes, entered by simply typing them. `fund` wires §10,000 to the
+   * treasury (repeat to taste). Typing walks through tool hotkeys on the way
+   * (F, N…), so the tool from before the first cheat letter is restored on a
+   * match. Returns true when the key completed a cheat.
+   */
+  private feedCheat(key: string): boolean {
+    const CHEAT = 'fund';
+    if (!/^[a-z]$/.test(key)) {
+      this.cheatBuffer.length = 0;
+      return false;
+    }
+    this.cheatBuffer.push({ key, tool: this.tool });
+    if (this.cheatBuffer.length > CHEAT.length) this.cheatBuffer.shift();
+    if (this.cheatBuffer.map((e) => e.key).join('') !== CHEAT) return false;
+    const toolBefore = this.cheatBuffer[0].tool;
+    this.cheatBuffer.length = 0;
+    if (!this.city) return false;
+    this.city.funds += 10000;
+    this.selectTool(toolBefore);
+    this.setMessage('§10,000 in mysterious federal grants has arrived');
+    this.callbacks.onChime();
+    return true;
   }
 
   selectTool(tool: ToolSelection): void {
