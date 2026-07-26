@@ -146,7 +146,14 @@ export function setupInput(opts: InputOptions): void {
 
   const endDrag = (e: PointerEvent) => {
     pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinch = null;
+    if (pointers.size < 2) {
+      pinch = null;
+    } else if (pinch) {
+      // Still two or more fingers down, but not the pair the pinch was
+      // measured from — re-seed, or the next move applies the distance ratio
+      // between two unrelated fingers and the map jumps.
+      enterPinch();
+    }
     toolDrag = false;
     panDrag = false;
     lastCell = null;

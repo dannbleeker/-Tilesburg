@@ -35,6 +35,8 @@ export class Minimap {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private lastDraw = 0;
+  /** Pointer id currently dragging the viewport, or null. */
+  private dragging: number | null = null;
 
   constructor(root: HTMLElement, private hooks: MinimapHooks) {
     this.canvas = document.createElement('canvas');
@@ -53,16 +55,27 @@ export class Minimap {
       this.hooks.onJump(tx, ty);
       this.lastDraw = 0;
     };
+    // Drag-to-jump via pointer capture rather than window listeners: a drag
+    // that ends in pointercancel (touch interrupted, focus lost) never fires
+    // pointerup, and window listeners registered per-pointerdown would then
+    // accumulate for the life of the session.
     this.canvas.addEventListener('pointerdown', (e) => {
+      try {
+        this.canvas.setPointerCapture(e.pointerId);
+      } catch {
+        // Pointer already gone; the click still counts.
+      }
+      this.dragging = e.pointerId;
       jump(e);
-      const move = (ev: PointerEvent) => jump(ev);
-      const up = () => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
     });
+    this.canvas.addEventListener('pointermove', (e) => {
+      if (this.dragging === e.pointerId) jump(e);
+    });
+    const endDrag = (e: PointerEvent) => {
+      if (this.dragging === e.pointerId) this.dragging = null;
+    };
+    this.canvas.addEventListener('pointerup', endDrag);
+    this.canvas.addEventListener('pointercancel', endDrag);
   }
 
   update(city: City, nowMs: number): void {

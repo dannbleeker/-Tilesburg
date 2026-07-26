@@ -107,6 +107,8 @@ export interface ScenarioState {
   /** cityTime at which the scenario is judged lost if not won. */
   deadline: number;
   outcome: 'open' | 'won' | 'lost';
+  /** Consecutive passing win-condition checks so far (see sustainedChecks). */
+  streak: number;
 }
 
 export interface DisasterActor {

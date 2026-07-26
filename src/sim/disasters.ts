@@ -127,6 +127,10 @@ export function triggerMonster(city: City): void {
       target = i;
     }
   }
+  // With no pollution anywhere (a brand-new or freshly-stamped city) head for
+  // the middle of the map rather than index MAP_SIZE/2, which is the *west
+  // edge* of the middle row.
+  if (best === 0) target = (MAP_H >> 1) * MAP_W + (MAP_W >> 1);
   city.monster = {
     x: rng.chance(0.5) ? 0 : MAP_W - 1,
     y: rng.range(10, MAP_H - 11),
@@ -249,10 +253,18 @@ function advanceFlood(city: City): void {
       const j = ny * MAP_W + nx;
       const nt = tiles[j];
       if (nt === Tile.Water || nt === Tile.Flood) continue;
-      if (rng.chance(0.06)) {
-        if (isBuilding(nt)) levelFootprint(city, city.anchor[j]);
-        tiles[j] = Tile.Flood;
+      // Radioactive fallout is permanent — water does not wash it away.
+      if (nt === Tile.Radioactive) continue;
+      if (!rng.chance(0.06)) continue;
+      if (nt === Tile.Bridge || nt === Tile.WireWater || nt === Tile.RailWater) {
+        // Structures built over water wash out, but the water stays water:
+        // marking them Flood would let the recede pass turn open water into
+        // dry land and permanently deform the coastline.
+        tiles[j] = Tile.Water;
+        continue;
       }
+      if (isBuilding(nt)) levelFootprint(city, city.anchor[j]);
+      tiles[j] = Tile.Flood;
     }
   }
 }

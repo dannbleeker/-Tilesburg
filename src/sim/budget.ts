@@ -10,6 +10,15 @@ const RAIL_MAINT = 2;
 /** § of tax income per point of zone population at 1% tax. */
 const TAX_YIELD = 0.5;
 
+/**
+ * Property-tax take at the city's current rate. Exposed so the budget window
+ * can re-price the year live as the player drags the tax slider.
+ */
+export function taxIncome(city: City): number {
+  const pop = city.census.resPop + city.census.comPop + city.census.indPop;
+  return Math.round(pop * city.taxRate * TAX_YIELD);
+}
+
 /** Count the year's income and full-funding costs without applying them. */
 export function assessBudget(city: City): BudgetSummary {
   const { tiles } = city;
@@ -28,10 +37,9 @@ export function assessBudget(city: City): BudgetSummary {
       railTiles++;
     }
   }
-  const pop = city.census.resPop + city.census.comPop + city.census.indPop;
   return {
     year: city.startYear + Math.floor(city.cityTime / TICKS_PER_YEAR),
-    taxIncome: Math.round(pop * city.taxRate * TAX_YIELD),
+    taxIncome: taxIncome(city),
     policeMaint: (police / 9) * STATION_MAINT, // 9 cells per 3x3 station
     fireMaint: (fire / 9) * STATION_MAINT,
     transitMaint: roadTiles * ROAD_MAINT + railTiles * RAIL_MAINT,

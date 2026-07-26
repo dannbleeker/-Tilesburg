@@ -44,7 +44,15 @@ npm run build      # tsc --noEmit && vite build → dist/ (fully static)
 5. **Save format**: `src/sim/save.ts` serializes authored state only (derived
    overlay maps are recomputed on load). Any change to persisted `City` fields
    needs a `SAVE_VERSION` bump + migration or explicit rejection, and the
-   round-trip tests updated.
+   round-trip tests updated. Currently at v2 (v1 still loads; `pendingBudget`
+   defaults to null). When you add a `City` field, ask first whether it is
+   *authored* — if so it MUST round-trip, and `test/regressions.test.ts` should
+   grow a case. `pendingBudget` was missed exactly this way and silently ate a
+   year's budget out of every autosave.
+6. **Loading is not the same as priming.** `primeDemand()` is for *fresh*
+   cities (census + demand + maps). A loaded city must call
+   `recomputeDerivedMaps()` only — re-running the census would discard restored
+   demand/census and re-fire that year's messages.
 
 ## File map
 
@@ -99,6 +107,19 @@ for pinch.
 - Balance tuning lives in plain numbers near the top of each sim file
   (demand valve formula, growth chances, decay rates); tests pin behavior
   ranges, not exact values, so retuning is safe within reason.
+- **Deposit and decay rates must be tuned as a pair.** `TRIP_LOAD`
+  (traffic.ts) and `decayTraffic`'s cadence (every 4 ticks, from `tick.ts`)
+  set the equilibrium `load / (1 - decay^interval)`. They were once far apart
+  and every routed road pinned at 255, which silently made the renderer's
+  mid-traffic art unreachable and turned a scenario goal into a coin flip.
+- **Scenario goals must be checked against an idle run.** A goal measured on
+  a quantity that drifts (or on a one-shot seeded fill) can complete itself
+  with no player input. `sustainedChecks` on a `ScenarioDef` requires N
+  consecutive passing checks; `test/regressions.test.ts` asserts Bern 1965
+  both fails when idle and is winnable by converting streets to rail.
+- Coverage maps take funding as a **required** argument on purpose — the old
+  default of 1 let a caller rebuild them as if every department were fully
+  funded.
 
 ## Deliberate simplifications (documented, not bugs)
 

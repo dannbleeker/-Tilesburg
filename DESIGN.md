@@ -120,10 +120,17 @@ cursor. All mutation goes through the tools module; the renderer never writes ti
 
 `src/sim/save.ts` is a pure city ↔ JSON codec: all authored state (tiles, flags,
 anchors, stages, traffic, scalars, ordinances, scenario progress, disaster actors,
-RNG state) with typed arrays base64-encoded. Derived overlay maps are recomputed on
-load. localStorage autosave (every sim year), three manual slots, and JSON file
+an unsettled January budget, RNG state) with typed arrays base64-encoded. Derived
+overlay maps are recomputed on load via `recomputeDerivedMaps()` — which seeds
+police/fire coverage at the city's *stored funding*, since rebuilding it at full
+funding would change fire spread and crime and break the resume guarantee.
+localStorage autosave (every sim year), three manual slots, and JSON file
 export/import all share the codec. Because the RNG state is saved, a loaded city
 continues deterministically — verified by a tick-for-tick equality test.
+
+Format is **v2**; v1 saves still load with `pendingBudget` defaulting to null.
+Every grid payload is length-checked on load, so a truncated array is rejected
+rather than quietly poisoning the census with NaN.
 
 ## Audio (phase 7)
 
@@ -169,7 +176,15 @@ seaport/airport cap-lifters plug in during later phases.
 road/rail network (≤ 40 steps) for a counterpart zone type — R seeks C/I jobs, C and
 I seek R. Success sets the anchor's ACCESS flag (required to grow past stage 1) and
 deposits traffic along the route's *road* tiles; rail carries trips with no traffic
-and no pollution. Traffic decays multiplicatively between passes.
+and no pollution.
+
+Traffic decays multiplicatively every 4 ticks — the same cadence trips are
+generated on. Deposit size (`TRIP_LOAD`) and decay interval together fix the
+equilibrium, so they are tuned as a pair: when decay ran only monthly against a
+32-per-trip load, every routed tile pinned at the 255 ceiling and the density map
+became binary. A lightly-used street now settles in the low tens and only genuinely
+shared arteries approach the ceiling, which is what the renderer's three traffic
+art tiers and the Bern scenario's congestion goal both read.
 
 **Derived maps** (all `Uint8Array`, 0..255, recomputed on a staggered monthly
 schedule ordered so downstream reads fresh upstream): population density (zone
@@ -247,6 +262,15 @@ a win predicate checked twice a month, and a deadline. Outcomes land on
 `city.scenario.outcome`; the UI shows briefing and verdict modals, and the city
 keeps simulating afterward either way. Win targets sit meaningfully above the
 stamped starting populations so recovery scenarios demand actual rebuilding.
+
+A goal measured on a fluctuating quantity can be satisfied by a lucky sample, so
+`ScenarioDef.sustainedChecks` requires N consecutive passing checks (tracked as
+`scenario.streak`). Bern 1965 uses it: its goal counts *congested* road tiles
+rather than a map-wide traffic average — an average is dominated by the many
+empty streets in a grid and improves when you pave more road, which is the
+opposite of the intended lesson. Every scenario must be verified to fail an idle
+run and to be winnable by fair play; both directions are asserted in
+`test/regressions.test.ts`.
 
 ## Phase status
 

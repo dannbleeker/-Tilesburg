@@ -6,8 +6,13 @@ import { Flag, FOOTPRINT, isTransport, MAP_H, MAP_SIZE, MAP_W, MAX_TRIP_DIST, Ti
 const SLICES = 8;
 const SLICE_SIZE = Math.ceil(MAP_SIZE / SLICES);
 
-/** Traffic added along a successful route's road tiles. */
-const TRIP_LOAD = 32;
+/**
+ * Traffic added along a successful route's road tiles. Sized against the
+ * decay rate so a lightly-used road settles in the low tens and only genuinely
+ * shared arterials approach the 255 ceiling — at higher loads every routed
+ * tile pinned at 255 and the density map carried no information.
+ */
+const TRIP_LOAD = 8;
 
 // Scratch for BFS (single-threaded sim).
 const visited = new Int32Array(MAP_SIZE); // stores generation stamp
@@ -78,7 +83,10 @@ function attemptTrip(city: City, anchorIdx: number, zoneType: number): boolean {
   let depthEnd = tail; // index where the current BFS depth ends
   let depth = 0;
 
-  while (head < tail && depth <= limit) {
+  // depth 0 is the ring of transport tiles touching the zone, so processing
+  // depth d means d+1 tiles travelled: stop *before* limit to keep the real
+  // reach at MAX_TRIP_DIST tiles.
+  while (head < tail && depth < limit) {
     const j = queue[head++];
 
     // Arrived? A counterpart zone cell adjacent to this transport tile.

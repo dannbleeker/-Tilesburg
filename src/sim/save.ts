@@ -7,7 +7,10 @@ import { Rng } from './rng';
 // after load, so only authored state is stored. The RNG state rides along,
 // making a loaded city continue deterministically.
 
-export const SAVE_VERSION = 1;
+// v2 added pendingBudget. v1 saves still load; the missing field defaults to
+// null, which is exactly what a v1 city would have carried anyway.
+export const SAVE_VERSION = 2;
+const OLDEST_LOADABLE_VERSION = 1;
 
 interface SaveData {
   version: number;
@@ -19,6 +22,8 @@ interface SaveData {
   taxRate: number;
   funding: City['funding'];
   autoBudget: boolean;
+  /** An unsettled January budget awaiting the player's review. */
+  pendingBudget: City['pendingBudget'];
   disastersEnabled: boolean;
   ordinances: Record<string, boolean>;
   scenario: City['scenario'];
@@ -63,6 +68,7 @@ export function serializeCity(city: City): string {
     taxRate: city.taxRate,
     funding: city.funding,
     autoBudget: city.autoBudget,
+    pendingBudget: city.pendingBudget,
     disastersEnabled: city.disastersEnabled,
     ordinances: city.ordinances,
     scenario: city.scenario,
@@ -83,7 +89,9 @@ export function serializeCity(city: City): string {
 
 export function deserializeCity(json: string): City {
   const data = JSON.parse(json) as SaveData;
-  if (data.version !== SAVE_VERSION) throw new Error(`Unsupported save version ${data.version}`);
+  if (data.version > SAVE_VERSION || data.version < OLDEST_LOADABLE_VERSION) {
+    throw new Error(`Unsupported save version ${data.version}`);
+  }
 
   // Build a shell city (terrain is immediately overwritten by the payload).
   const city = createCity(data.seed, { coast: false, river: false, lakes: 0, forest: 0 });
@@ -93,8 +101,10 @@ export function deserializeCity(json: string): City {
   city.anchor = new Int32Array(decode(data.anchor).buffer);
   city.stage = decode(data.stage);
   city.trafficDensity = decode(data.trafficDensity);
-  if (city.tiles.length !== MAP_SIZE || city.anchor.length !== MAP_SIZE) {
-    throw new Error('Corrupt save payload');
+  // Every grid must be full length: a short one would read undefined past the
+  // end and quietly poison the census with NaN.
+  for (const grid of [city.tiles, city.flags, city.anchor, city.stage, city.trafficDensity]) {
+    if (grid.length !== MAP_SIZE) throw new Error('Corrupt save payload');
   }
 
   city.rng = new Rng(0);
@@ -106,6 +116,7 @@ export function deserializeCity(json: string): City {
   city.taxRate = data.taxRate;
   city.funding = data.funding;
   city.autoBudget = data.autoBudget;
+  city.pendingBudget = data.pendingBudget ?? null; // absent in v1 saves
   city.disastersEnabled = data.disastersEnabled;
   city.ordinances = data.ordinances;
   city.scenario = data.scenario;

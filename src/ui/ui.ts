@@ -1,5 +1,5 @@
 import { OVERLAYS, type OverlayId } from '../render/overlay';
-import { applyBudget, assessBudget, cashFlow, fundedCost } from '../sim/budget';
+import { applyBudget, assessBudget, cashFlow, fundedCost, taxIncome } from '../sim/budget';
 import {
   triggerEarthquake,
   triggerFire,
@@ -74,6 +74,9 @@ export interface UICallbacks {
   onLoadCity: (json: string) => string | null;
   onToggleSfx: () => boolean;
   onToggleMusic: () => boolean;
+  /** Current persisted mute state, for painting the buttons at startup. */
+  isSfxMuted: () => boolean;
+  isMusicMuted: () => boolean;
   /** Sim events worth a sound. */
   onAlarm: () => void;
   onChime: () => void;
@@ -251,9 +254,10 @@ export class UI {
       btn.textContent = glyph;
       btn.classList.toggle('muted', muted);
     };
-    // Initial state is painted on first toggle; assume unmuted glyphs.
-    paint(sfxBtn, '🔊', false);
-    paint(musicBtn, '♫', false);
+    // Seed from the engine's persisted preference, not from an assumption —
+    // otherwise a reload shows both as unmuted while the audio stays silent.
+    paint(sfxBtn, '🔊', this.callbacks.isSfxMuted());
+    paint(musicBtn, '♫', this.callbacks.isMusicMuted());
     sfxBtn.addEventListener('click', () => paint(sfxBtn, '🔊', this.callbacks.onToggleSfx()));
     musicBtn.addEventListener('click', () => paint(musicBtn, '♫', this.callbacks.onToggleMusic()));
     bar.append(sfxBtn, musicBtn);
@@ -325,13 +329,11 @@ export class UI {
     this.modalEl.style.display = 'flex';
     if (!this.modalOpen) {
       this.modalOpen = true;
-      this.prevModalSpeed = this.speed === 'paused' ? this.prevSpeedPublic() : this.speed;
+      // Remember the literal current speed: mapping 'paused' back to the last
+      // running speed would resume a game the player had deliberately paused.
+      this.prevModalSpeed = this.speed;
       this.selectSpeed('paused');
     }
-  }
-
-  private prevSpeedPublic(): SpeedId {
-    return this.prevSpeed;
   }
 
   private closeModal(): void {
@@ -413,6 +415,9 @@ export class UI {
     );
 
     const renderFlow = () => {
+      // Re-price the year at the rate now on the slider: the player is setting
+      // the rate this budget collects at, so a stale figure would misreport it.
+      summary.taxIncome = taxIncome(city);
       const net = cashFlow(city, summary);
       const sign = net >= 0 ? '+' : '−';
       const ord = summary.ordinanceNet;
@@ -471,9 +476,11 @@ export class UI {
         const save = document.createElement('button');
         save.textContent = 'Save';
         save.addEventListener('click', () => {
-          this.writeSlot(key);
+          const ok = this.writeSlot(key);
           this.closeModal();
-          this.setMessage(`Saved to ${SLOT_NAMES[i]}`);
+          // Only claim success if it actually wrote — otherwise writeSlot's own
+          // failure message must stand.
+          if (ok) this.setMessage(`Saved to ${SLOT_NAMES[i]}`);
         });
         rowEl.appendChild(save);
       }
@@ -529,12 +536,15 @@ export class UI {
     this.openModal(panel);
   }
 
-  private writeSlot(key: string): void {
+  /** Returns false (and reports) if the write failed. */
+  private writeSlot(key: string): boolean {
     const stored: StoredSave = { savedAt: new Date().toISOString(), data: this.callbacks.serialize() };
     try {
       localStorage.setItem(key, JSON.stringify(stored));
+      return true;
     } catch {
       this.setMessage('Save failed — storage is full');
+      return false;
     }
   }
 
@@ -745,6 +755,11 @@ export class UI {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const key = e.key.toLowerCase();
+      // A modal blocks the world: it pauses the sim and owns the screen, so
+      // tools, speed and cheats must not be reachable behind it. Otherwise the
+      // clock runs behind a "blocking" window and the speed the player picked
+      // is thrown away when the modal closes.
+      if (this.modalOpen) return;
       if (this.feedCheat(key)) return;
       const tool = byHotkey.get(key);
       if (tool) {

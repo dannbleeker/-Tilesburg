@@ -80,14 +80,14 @@ describe('crime and police', () => {
     expect(unpoliced).toBeGreaterThan(0);
 
     applyTool(city, 'police', 44, 40);
-    computePoliceCoverage(city);
+    computePoliceCoverage(city, 1);
     computeCrime(city);
     expect(city.crime[idx(40, 40)]).toBeLessThan(unpoliced);
   });
 
   it('police coverage spreads beyond the station footprint and fades out', () => {
     applyTool(city, 'police', 40, 40); // footprint (39,39)-(41,41)
-    computePoliceCoverage(city);
+    computePoliceCoverage(city, 1);
     expect(city.policeCov[idx(40, 40)]).toBeGreaterThan(0);
     expect(city.policeCov[idx(45, 40)]).toBeGreaterThan(0); // 4 tiles past the edge
     expect(city.policeCov[idx(40, 40)]).toBeGreaterThan(city.policeCov[idx(45, 40)]);

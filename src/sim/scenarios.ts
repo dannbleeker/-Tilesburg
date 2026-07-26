@@ -1,8 +1,9 @@
 import { createCity, idx, type City } from './city';
 import { FOOTPRINT, MAP_SIZE, TICKS_PER_YEAR, Tile, type BuildingType } from './constants';
-import { evaluateDemand, takeCensus } from './demand';
 import { cityPopulation } from './evaluation';
 import { triggerEarthquake, triggerFire, triggerFlood, triggerMeltdown, triggerMonster } from './disasters';
+import { evaluateDemand, takeCensus } from './demand';
+import { recomputeDerivedMaps } from './maps';
 import type { TerrainParams } from './terrain';
 
 export interface ScenarioDef {
@@ -22,8 +23,14 @@ export interface ScenarioDef {
   onStart?: (city: City) => void;
   /** Fired periodically while the scenario runs. */
   recurring?: { intervalTicks: number; fn: (city: City) => void };
-  /** Checked monthly; first true wins the scenario. */
+  /** Checked twice a month; see sustainedChecks for how many must agree. */
   isWon: (city: City) => boolean;
+  /**
+   * Consecutive passing checks required to win (default 1). Goals measured
+   * against a quantity that oscillates within the month need several so a
+   * single favourable sample can't win the scenario.
+   */
+  sustainedChecks?: number;
 }
 
 // --- city stamping helpers (hand-authored approximations) ------------------
@@ -113,17 +120,25 @@ function averageCrime(city: City): number {
   return n ? sum / n : 0;
 }
 
-function averageTraffic(city: City): number {
-  let sum = 0;
+/**
+ * Road tiles carrying heavy traffic. Counting congested blocks is a far better
+ * goal metric than a map-wide average: the average is dominated by the many
+ * empty roads in a grid, so it reads near zero even when the arteries are
+ * jammed, and it moves when you *pave more road* rather than when you fix
+ * congestion. This threshold matches the renderer's "busy" traffic art, so the
+ * player can literally see what the goal is counting.
+ */
+const CONGESTED = 30;
+
+function congestedRoads(city: City): number {
   let n = 0;
   for (let i = 0; i < MAP_SIZE; i++) {
     const t = city.tiles[i];
     if (t === Tile.Road || t === Tile.Bridge || t === Tile.RoadWire || t === Tile.RoadRail) {
-      sum += city.trafficDensity[i];
-      n++;
+      if (city.trafficDensity[i] > CONGESTED) n++;
     }
   }
-  return n ? sum / n : 0;
+  return n;
 }
 
 // --- the eight classics -----------------------------------------------------
@@ -167,17 +182,24 @@ export const SCENARIOS: ScenarioDef[] = [
     name: 'Bern 1965',
     year: 1965,
     description: 'The capital is choking on cars. Untangle the streets — rail moves people without exhaust.',
-    goal: 'Cut average road traffic below 25 within 10 years.',
+    goal: 'Get the city down to fewer than 6 congested streets within 10 years — rail carries riders without adding traffic.',
     seed: 1965,
     terrain: { coast: false, river: true, lakes: 1, forest: 0.5 },
     funds: 20000,
     timeLimitYears: 10,
     build: (c) => {
+      // No artificial trafficDensity fill: a one-shot fill just decays away
+      // and hands the player a win for doing nothing. The congestion has to
+      // come from the town's own generated trips, which is what rail relieves.
       stampTown(c, 28, 30, 10, 8, 4);
       stampMetropolisExtras(c, 28, 30);
-      c.trafficDensity.fill(120);
     },
-    isWon: (c) => c.cityTime > TICKS_PER_YEAR && averageTraffic(c) < 25,
+    // Sustained, not a lucky sample: traffic dips right after each decay pass,
+    // so a single reading below the line proves nothing. The one-year grace
+    // period lets the stamped town's trips build to their steady state first —
+    // otherwise the city starts at zero traffic and wins before it congests.
+    isWon: (c) => c.cityTime > TICKS_PER_YEAR && congestedRoads(c) < 6,
+    sustainedChecks: 12,
   },
   {
     id: 'tokyo1957',
@@ -273,13 +295,18 @@ export function createScenarioCity(def: ScenarioDef): City {
   city.funds = def.funds;
   city.startYear = def.year;
   def.build(city);
+  // Prime census, demand *and* the derived overlay maps before onStart runs:
+  // start-of-scenario disasters read them (the monster steers by pollution),
+  // and the player sees the overlays immediately.
   takeCensus(city);
   evaluateDemand(city);
+  recomputeDerivedMaps(city);
   def.onStart?.(city);
   city.scenario = {
     id: def.id,
     deadline: def.timeLimitYears * TICKS_PER_YEAR,
     outcome: 'open',
+    streak: 0,
   };
   return city;
 }
@@ -296,7 +323,14 @@ export function checkScenario(city: City): void {
   }
 
   if (city.cityTime % 8 !== 0) return; // twice a month is plenty
+
   if (def.isWon(city)) {
+    state.streak++;
+  } else {
+    state.streak = 0;
+  }
+
+  if (state.streak >= (def.sustainedChecks ?? 1)) {
     state.outcome = 'won';
     city.messages.push(`Scenario complete — ${def.name} is saved!`);
   } else if (city.cityTime >= state.deadline) {

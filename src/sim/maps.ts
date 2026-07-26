@@ -86,7 +86,9 @@ export function computePollution(city: City): void {
     } else if (t === Tile.Radioactive) {
       v = 60;
     } else if (t === Tile.Road || t === Tile.Bridge || t === Tile.RoadWire || t === Tile.RoadRail) {
-      v = trafficDensity[i] * 0.5;
+      // Traffic density now settles well below the old saturated 255, so the
+      // per-unit weight is higher to keep exhaust pollution in the same range.
+      v = trafficDensity[i] * 1.5;
     }
     scratchA[i] = v;
   }
@@ -173,12 +175,36 @@ function computeCoverage(city: City, out: Uint8Array, stationType: number, fundi
   diffuseInto(out, 6);
 }
 
-export function computePoliceCoverage(city: City, funding = 1): void {
+// `funding` is deliberately required: defaulting it to 1 previously let a
+// caller silently seed coverage as if every department were fully funded.
+export function computePoliceCoverage(city: City, funding: number): void {
   computeCoverage(city, city.policeCov, Tile.Police, funding);
 }
 
-export function computeFireCoverage(city: City, funding = 1): void {
+export function computeFireCoverage(city: City, funding: number): void {
   computeCoverage(city, city.fireCov, Tile.FireStation, funding);
+}
+
+/**
+ * Rebuild every derived overlay map from authored state. Used when a city
+ * appears without having been ticked — a fresh map, a stamped scenario, or a
+ * save (whose derived maps are deliberately not persisted).
+ *
+ * Coverage is seeded at the city's *actual* funding, exactly as the tick
+ * pipeline does; rebuilding it at full funding would hand a loaded city
+ * stronger police/fire maps than it had, changing fire spread and crime and
+ * so breaking tick-for-tick save resume.
+ */
+export function recomputeDerivedMaps(city: City): void {
+  computePopDensity(city);
+  computePollution(city);
+  computePoliceCoverage(city, city.funding.police);
+  computeFireCoverage(city, city.funding.fire);
+  computeLandValue(city);
+  computeCrime(city);
+  // The first land-value pass read a stale crime map; now that crime is
+  // current, settle it.
+  computeLandValue(city);
 }
 
 /** Traffic decays between generation passes so stale routes fade out. */

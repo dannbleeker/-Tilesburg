@@ -12,6 +12,7 @@ import {
   computePollution,
   computePopDensity,
   decayTraffic,
+  recomputeDerivedMaps,
 } from './maps';
 import { scanPower } from './power';
 import { checkScenario } from './scenarios';
@@ -45,13 +46,17 @@ function advanceClock(city: City): void {
 // read fresh upstream data: population → pollution → coverage → land value
 // → crime.
 function diffuseMaps(city: City): void {
+  // Traffic decays on the trip-generation cadence, not the monthly one:
+  // zones deposit every SLICES ticks, so decaying only once a month let the
+  // density run away to a saturated 255 on every routed tile.
+  if (city.cityTime % 4 === 0) decayTraffic(city);
+
   const phase = city.cityTime % TICKS_PER_MONTH;
   switch (phase) {
     case 2:
       computePopDensity(city);
       break;
     case 5:
-      decayTraffic(city);
       computePollution(city);
       break;
     case 8:
@@ -86,16 +91,15 @@ function collectBudget(city: City): void {
 }
 
 /**
- * Prime a fresh city's demand valves and overlay maps so the UI is
- * meaningful before the first monthly evaluation.
+ * Prime a *fresh* city: census and demand valves from the authored grid, plus
+ * the derived maps. Never call this on a loaded city — census and demand are
+ * persisted state, and recomputing them would discard the restored values
+ * (and re-fire the yearly cap-lifter messages).
  */
 export function primeDemand(city: City): void {
   takeCensus(city);
   evaluateDemand(city);
-  computePopDensity(city);
-  computePollution(city);
-  computePoliceCoverage(city);
-  computeFireCoverage(city);
-  computeLandValue(city);
-  computeCrime(city);
+  recomputeDerivedMaps(city);
 }
+
+export { recomputeDerivedMaps };

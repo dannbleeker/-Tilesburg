@@ -12,7 +12,7 @@ import { Rng } from './sim/rng';
 import { deserializeCity, serializeCity } from './sim/save';
 import { createScenarioCity, SCENARIOS } from './sim/scenarios';
 import { randomTerrainParams, STARTER_MAPS } from './sim/terrain';
-import { primeDemand, tick } from './sim/tick';
+import { primeDemand, recomputeDerivedMaps, tick } from './sim/tick';
 import { Minimap } from './ui/minimap';
 import { UI } from './ui/ui';
 
@@ -63,7 +63,10 @@ async function boot(): Promise<void> {
     onLoadCity: (json) => {
       try {
         const loaded = deserializeCity(json);
-        primeDemand(loaded);
+        // Only the derived maps are rebuilt: census and demand are restored
+        // authored state, and re-running them would discard the saved values
+        // and re-fire that year's cap-lifter messages.
+        recomputeDerivedMaps(loaded);
         swapCity(loaded);
         return null;
       } catch {
@@ -72,6 +75,8 @@ async function boot(): Promise<void> {
     },
     onToggleSfx: () => audio.toggleSfx(),
     onToggleMusic: () => audio.toggleMusic(),
+    isSfxMuted: () => audio.sfxMuted,
+    isMusicMuted: () => audio.musicMuted,
     onAlarm: () => audio.play('alarm'),
     onChime: () => audio.play('chime'),
     onNewMap: (starter) => {
