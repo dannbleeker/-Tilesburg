@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [claude/tilesburg-simcity-clone-gtlypk]
+    branches: [main, claude/tilesburg-simcity-clone-gtlypk]
   workflow_dispatch:
 
 permissions:
