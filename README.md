@@ -7,12 +7,19 @@ art generated entirely in code.
 **Stack:** TypeScript (strict) · PixiJS · Vite · Vitest. No backend, no binary
 assets.
 
+> **Rights:** © 2026 Dann Bleeker Pedersen. All rights reserved — this source is
+> published for viewing, not licensed for reuse or redistribution. Tilesburg is an
+> unaffiliated clean-room work: it contains no code, names, or assets from the game
+> that inspired it, and any trademarks referenced belong to their owners.
+
 ## Run it
+
+Requires **Node 22+** (pinned in `.nvmrc`; Vite 6 and Vitest 3 need ≥18).
 
 ```bash
 npm install
 npm run dev        # dev server
-npm test           # sim engine unit tests
+npm test           # sim engine unit tests (~40s)
 npm run build      # typecheck + production build
 ```
 
@@ -20,8 +27,8 @@ npm run build      # typecheck + production build
 
 The game is a fully static site (no backend; saves live in the player's
 browser), so `npm run build` produces a self-contained `dist/` you can put on
-any static host. `.github/workflows/deploy.yml` builds, tests, and publishes
-to GitHub Pages on every push — enable it once under
+any static host. `.github/workflows/deploy.yml` tests, builds, and publishes
+to GitHub Pages on every push to `main` — enable it once under
 **Settings → Pages → Source: GitHub Actions** if the first run doesn't do it
 automatically. Asset paths are relative (`base: './'`), so it also works from
 a subdirectory, Netlify/Vercel/Cloudflare Pages, or a plain web server.
@@ -87,4 +94,4 @@ manual slots + JSON export/import (deterministic resume, RNG state included),
 an always-visible minimap with viewport box and click-to-jump, fully
 synthesized audio (tool SFX, disaster alarms, budget chime, population-scaled
 ambient hum, two procedural music loops, independent mute toggles), animated
-traffic on busy roads, and smoking coal stacks. 118-test Vitest suite.
+traffic on busy roads, and smoking coal stacks. 133-test Vitest suite.

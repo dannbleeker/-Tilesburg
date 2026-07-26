@@ -27,70 +27,89 @@ tick pipeline, and the architectural rules that every phase builds on.
 
 The city state (`src/sim/city.ts`) is a plain object of typed arrays:
 
+Authored state (persisted; see "Persistence"):
+
 | Field | Type | Contents |
 |---|---|---|
-| `tiles` | `Uint16Array` | Base tile type per cell (see below) |
-| `flags` | `Uint8Array` | Bit flags per cell (powered, conductor, burnable, …) |
-| `funds` | `number` | Player money in §  |
-| `cityTime` | `number` | Sim ticks since founding; 16 ticks = 1 month, start Jan 1900 |
-| `rngState` | `number` | Current PRNG state (serialized with the city) |
+| `tiles` | `Uint16Array` | Semantic tile type per cell (see below) |
+| `flags` | `Uint8Array` | Bit flags per cell — see "Flags" |
+| `anchor` | `Int32Array` | For a building cell, the index of its footprint's top-left cell; -1 elsewhere |
+| `stage` | `Uint8Array` | Zone growth stage 0–4; meaningful only at anchor cells |
+| `trafficDensity` | `Uint8Array` | Road load 0–255 (authored by trip generation, so it is saved) |
+| `funds` | `number` | Player money in § |
+| `cityTime` | `number` | Sim ticks since founding; 16 ticks = 1 month |
+| `startYear` | `number` | Clock year at founding (1900, or the scenario's year) |
+| `rng` | `Rng` | Seeded mulberry32; `rng.state` is saved as `rngState` |
 | `seed` | `number` | The seed the map was generated from |
+
+Plus scalar game state: `taxRate`, `funding`, `autoBudget`, `pendingBudget`, `demand`,
+`census`, `lastYearPop`, `ordinances`, `scenario`, `disastersEnabled`, `monster`,
+`tornado`, `floodTicks`, `messages`.
+
+**Derived** maps — `pollution`, `landValue`, `crime`, `popDensity`, `policeCov`,
+`fireCov` — are `Uint8Array` overlays recomputed by the tick pipeline and deliberately
+*not* saved; `recomputeDerivedMaps()` rebuilds them on load.
 
 ### Tile encoding
 
 `tiles` stores a *semantic type*, not a sprite index. Visual variants (road connection
 shapes, water edges, animation frames) are derived at render time from the neighborhood,
-so the sim never deals in art.
+so the sim never deals in art. `Tile` in `src/sim/constants.ts` is the authoritative
+list (25 ids, `Dirt` through `Airport`); it is not transcribed here because a copy would
+drift.
 
-Phase-1 types (`src/sim/constants.ts`):
-
-```
-0 Dirt   1 Water   2 Tree   3 Rubble   4 Road   5 Bridge (road over water)
-```
-
-Later phases append zone tiles. Zones (3×3) will be encoded as a *center* tile carrying
-the zone type + growth stage, with the 8 surrounding cells marked as zone-member tiles
-pointing at their center via offset — the same trick the original used. Per-cell scalar
-fields (pollution, land value, crime, traffic density, population density) each get their
-own `Uint8Array`/`Uint16Array` overlay added in phase 3; they are *derived* maps
-recomputed by the tick pipeline, not authored state.
+**Buildings** (3×3 zones and stations, 4×4 plants, 6×6 airport) are stored per-cell, not
+as a center tile with offsets: every covered cell carries the building's tile type, so
+power conduction and bulldozing stay simple per-cell operations. `anchor[i]` points every
+covered cell at the footprint's top-left cell, and a cell is the anchor exactly when
+`anchor[i] === i` — that is the idiom the whole codebase uses to iterate buildings once.
+`stage[anchor]` holds the growth stage.
 
 ### Flags
 
-`flags` is reserved now so the save format doesn't churn later:
-bit 0 `POWERED`, bit 1 `CONDUCTOR`, bit 2 `BURNABLE`, bit 3 `BULLDOZABLE`.
-Phase 1 only writes `BULLDOZABLE`-equivalent knowledge implicitly (the tools consult the
-tile type); the power bits light up in phase 2.
+Per-cell bits in `flags` (`Flag` in `src/sim/constants.ts`):
+
+- bit 0 `Powered` — set by the power flood-fill each tick.
+- bit 1 `Access` — set on a zone anchor when trip generation found a transport route to
+  a counterpart zone; required to grow past stage 1.
+- bit 2 `Burnable` — reserved; fire currently decides flammability from the tile type.
+
+Conduction is *not* a flag: it is the pure function `isConductor()` on the tile type.
 
 ## Tick pipeline
 
-One call to `tick(city)` advances `cityTime` by 1. The full pipeline, in order (phase
-that implements each stage in brackets):
+One call to `tick(city)` advances `cityTime` by 1. This order is fixed — new systems slot
+into it, they do not reorder it. It matches `src/sim/tick.ts` exactly:
 
-1. Advance clock; fire month/year boundaries [1]
-2. Power grid scan — flood-fill from plants through conductors [2]
-3. Zone scan (staggered: ⅛ of the map per tick) — growth/decay decisions using demand,
-   power, transport access, land value [2/3]
-4. Traffic generation & decay [3]
-5. Pollution / land value / crime diffusion passes (staggered, every N ticks) [3]
-6. Disaster progression (fire spread, flood, monster movement…) [5]
-7. RCI demand re-evaluation from census + external market [2]
-8. January: budget collection (taxes − funding) unless auto-budget [4]
-9. Census & evaluation bookkeeping [4]
+1. Advance clock.
+2. Power grid scan — flood-fill from plants through conductors.
+3. Zone scan (staggered: ⅛ of the map per tick) — growth/decay from demand, power and
+   transport access.
+4. Traffic generation — trips from the same ⅛ slice.
+5. Derived maps: traffic decay every 4 ticks; then one map per staggered monthly phase
+   (population → pollution → coverage → land value → crime), ordered so each reads fresh
+   upstream data.
+6. Disaster progression (fire spread, flood, actors, the random-disaster roll).
+7. Monthly (`cityTime % 16 === 0`): census, then RCI demand re-evaluation.
+8. Scenario check — win/lose predicate, twice a month.
+9. January (`cityTime % 192 === 0`): infrastructure decay, budget assessment, then either
+   auto-settle or post `pendingBudget` for the player; snapshot population for net
+   migration.
 
-Phase 1 implements stage 1 and stubs the rest behind a fixed ordered list so later
-phases slot in without reordering. Stages that the original staggered across "passes"
-keep that behavior (documented per stage) so the performance and *feel* (gradual map
-updates) match.
+Stages the original staggered across "passes" keep that behavior, so the performance and
+*feel* (gradual map updates) match.
 
 ## Time & money
 
-- 16 ticks = 1 month; 192 ticks = 1 year. Start date January 1900. At normal speed
-  (4 ticks/s) a month passes every 4 s.
-- Starting funds: §20,000 (easy difficulty default; difficulty selection arrives with
-  the content phase).
-- Phase-1 tool costs (original values): bulldozer §1/tile, road §10/tile on land,
-  §50/tile over water (bridge). Building over trees auto-bulldozes (+§1).
+- 16 ticks = 1 month; 192 ticks = 1 year. Start date January 1900 for sandbox maps;
+  scenarios set their own `startYear`. At normal speed (4 ticks/s) a month passes
+  every 4 s.
+- Starting funds: §20,000 in sandbox; each scenario overrides it.
+- Tool costs live in `COST` (`src/sim/constants.ts`) and follow the original's prices:
+  bulldozer §1, road §10 (§50 as a bridge), rail §20 (§100 over water), power line §5
+  (§25 underwater), zones §100, police/fire §500, coal §3000, nuclear §5000,
+  stadium §3000, seaport §5000, airport §10000. Building over trees auto-bulldozes (+§1
+  per tile).
 
 ## Terrain generation
 

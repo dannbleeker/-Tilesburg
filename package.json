@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "description": "Tilesburg — a browser city-building game inspired by classic 1989 city simulators. Clean-room implementation.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

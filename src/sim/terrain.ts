@@ -28,8 +28,6 @@ export const STARTER_MAPS: StarterMap[] = [
   { name: 'Plainsville', seed: 5150, params: { coast: false, river: false, lakes: 1, forest: 0.25 } },
 ];
 
-export const RANDOM_MAP_PARAMS: TerrainParams = { coast: false, river: true, lakes: 1, forest: 0.5 };
-
 /** Roll terrain params for a "Random" map from the given rng. */
 export function randomTerrainParams(rng: Rng): TerrainParams {
   return {

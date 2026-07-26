@@ -9,18 +9,23 @@ new art). `README.md` covers player-facing controls and hosting.
 ## State of the project
 
 - Live at https://dannbleeker.github.io/-Tilesburg/ via `.github/workflows/deploy.yml`
-  (build → test → publish to GitHub Pages on every push; a transient
-  "Deployment failed, try again later" from deploy-pages just needs a re-run).
-- History is one commit per phase — `git log --oneline` is the build story.
-  Development happened on `claude/tilesburg-simcity-clone-gtlypk`; `main`
-  mirrors it.
-- 118 Vitest tests, all sim-level and Node-only (no DOM needed). CI runs them.
+  (`npm ci` → `npm test` → `npm run build` → publish to GitHub Pages, on every push
+  to `main`; a transient "Deployment failed, try again later" from deploy-pages just
+  needs a re-run from the Actions tab).
+- `main` is the only branch — the original development branch was deleted after the
+  merge. History is roughly one commit per delivery phase, so `git log --oneline` is
+  the build story.
+- 133 Vitest tests, all sim-level and Node-only (no DOM needed). CI runs them.
+  `test/regressions.test.ts` pins previously-fixed bugs; if you touch save,
+  coverage/funding, traffic tuning or scenario goals, read it first — those
+  cases exist because each of them broke once.
 
 ## Commands
 
 ```bash
 npm run dev        # Vite dev server
-npm test           # Vitest (headless sim tests; slowest file ~15s, timeout 30s)
+npm test           # Vitest (headless sim tests; ~40s total, slowest file ~26s,
+                   #   slowest single test ~13s against the 30s per-test timeout)
 npm run build      # tsc --noEmit && vite build → dist/ (fully static)
 ```
 
@@ -62,8 +67,11 @@ npm run build      # tsc --noEmit && vite build → dist/ (fully static)
   traffic BFS trips, diffusion maps, budget, evaluation, disasters,
   ordinances, scenarios, save codec, query.
 - `src/render/` — palette tokens, tileset generation, layered renderer
-  (ground/buildings/crossing-overlays/bolts/actors/heat-overlay), camera.
+  (ground/buildings/crossing-overlays/bolts/actors), `overlay.ts` (the 10 city-map
+  views: heat-ramp canvas + power/transport modes), camera.
 - `src/ui/` — DOM chrome (`ui.ts`: toolbar/topbar/modals/cheat), minimap.
+- `src/audio/audio.ts` — Web Audio SFX, ambient hum, procedural music. No assets.
+- `src/style.css` — all chrome styling (note the `opacity: 0.98` gotcha below).
 - `src/input.ts` — pointer/touch/wheel/keys; pinch-zoom lives here.
 - `src/main.ts` — wiring + game loop (fixed-timestep accumulator).
 - `test/` — one file per system; tests build tiny flat cities with
@@ -75,10 +83,15 @@ Unit tests are not enough for UI/renderer work — drive the real game:
 
 ```bash
 npm run build && npx vite preview --port 4173 --strictPort &
-# then playwright-core (installed in the session scratchpad, not the repo)
-# against the preinstalled Chromium, e.g. executablePath:
-#   /opt/pw-browsers/chromium-1194/chrome-linux/chrome   (check /opt/pw-browsers)
+# Drive it with Playwright. Keep it out of package.json — it is a debugging tool,
+# not a dependency of the game:
+#   npm i --no-save playwright-core && npx playwright install chromium
+# then launch with Playwright's own browser resolution (chromium.launch({})).
 ```
+
+Earlier sessions ran inside a sandbox with Chromium preinstalled at
+`/opt/pw-browsers/...` and passed an explicit `executablePath`. That path is
+sandbox-specific — do not expect it to exist.
 
 Screenshot and read the frames; several real bugs (unpowered scenario towns,
 instant scenario wins, a Chromium raster artifact) were only visible this way.
